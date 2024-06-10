@@ -1,63 +1,26 @@
 import asyncio
 import logging
 import sys
-from os import getenv
+from aiogram import Dispatcher, Router
+from bot import api, handlers, config
 
-from aiogram import Bot, Dispatcher, Router, types
-from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart
-from aiogram.types import Message
-from aiogram.utils.markdown import hbold
-
-
-
-
-with open('bot_token.txt', 'r') as file:
-    TOKEN = file.read().replace('\n', '')
-
-#TOKEN = getenv("BOT_TOKEN")
-
-
-
-# All handlers should be attached to the Router (or Dispatcher)
-dp = Dispatcher()
-
-
-@dp.message(CommandStart())
-async def command_start_handler(message: Message) -> None:
-    """
-    This handler receives messages with `/start` command
-    """
-    # Most event objects have aliases for API methods that can be called in events' context
-    # For example if you want to answer to incoming message you can use `message.answer(...)` alias
-    # and the target chat will be passed to :ref:`aiogram.methods.send_message.SendMessage`
-    # method automatically or call API method directly via
-    # Bot instance: `bot.send_message(chat_id=message.chat.id, ...)`
-    await message.answer(f"Hello, {hbold(message.from_user.full_name)}! for more info, type /help")
-
-
-@dp.message()
-async def echo_handler(message: types.Message) -> None:
-    """
-    Handler will forward receive a message back to the sender
-
-    By default, message handler will handle all message types (like a text, photo, sticker etc.)
-    """
-
-    # honeypot
-    if message.text == "/help":
-        await message.answer("help here")
-        return
-
-    # you can place your functions here
-
-# auto init the aio
 async def main() -> None:
-    # Initialize Bot instance with a default parse mode which will be passed to all API calls
-    bot = Bot(TOKEN, parse_mode=ParseMode.HTML)
-    # And the run events dispatching
-    await dp.start_polling(bot)
+    bot, dp = await api.init_bot(config.TELEGRAM_BOT_TOKEN)
+    
+    router = Router()
+    handlers.setup_handlers(router)
+    
+    dp.include_router(router)
+    
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("Bot stopped.")
