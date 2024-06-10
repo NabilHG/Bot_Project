@@ -1,4 +1,6 @@
 
-.venv
-bot_token.txt
+__pycache__/
+
+config.py
+
 .idea
