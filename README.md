@@ -4,7 +4,7 @@ This is a simple skeleton for a python bot using the python-telegram-bot library
 ## Virtual Environment
 To create a custom virtual environment for your dependencies to be contained, you can use the following command:
 ```bash
-python3 -m venv .venv
+python3 -m venv .venv ///// python -m venv bot_project (Windows)
 ```
 then you must 'use' that environment in the terminal with the following command:
 ```bash
@@ -41,3 +41,28 @@ sudo docker-compose up --build --remove-orphans -d
 ```
 which builds and starts the docker container in the background.
 You can use a custom script to backup before deploying the latter command.
+
+## PowerShell Commands
+(Every time you have to activate the virtual enviroment, do the following)
+
+Getting the current state for executing script to activate virtual env
+```bash
+Get-ExecutionPolicy
+```
+
+Changing it to be able to do it
+```bash
+Set-ExecutionPolicy RemoteSigned
+```
+
+Changing it back to restricted for safety reasons
+```bash
+Set-ExecutionPolicy Restricted
+```
+
+### Cmd altenative
+
+Navegate to the correct path of the enviroment and run the activation script
+```bash
+bot_VirtualEnv\Scripts\activate
+```

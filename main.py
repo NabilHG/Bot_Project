@@ -1,12 +1,11 @@
-from dotenv import load_dotenv
-load_dotenv()
-
 import asyncio
 import logging
 import sys
-from aiogram import Dispatcher, Router
-from bot import api, handlers, config
+from bot import api, config
 from bot.handlers import backtest, info
+from dotenv import load_dotenv
+load_dotenv()
+
 
 '''
 async def daily_analysis():
