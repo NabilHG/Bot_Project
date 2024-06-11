@@ -1,6 +1,6 @@
 
-__pycache__/
-
-config.py
+**/__pycache__/
 
 .idea
+
+.env
