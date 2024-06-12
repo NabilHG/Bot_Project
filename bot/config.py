@@ -1,5 +1,6 @@
-
+from dotenv import load_dotenv
 from os import getenv
+load_dotenv()
 
 # Token Telgram bot
 TELEGRAM_BOT_TOKEN = getenv("TELEGRAM_BOT_TOKEN")
