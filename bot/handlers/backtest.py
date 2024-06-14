@@ -30,7 +30,9 @@ async def load_dummy_data():
 
 async def fetch_rsi(session, symbol, message):
     api_key = config.ALPHA_VANTAGE_API_KEY
+    print(api_key)
     url = f"https://www.alphavantage.co/query?function=RSI&symbol={symbol}&interval=daily&time_period=10&series_type=close&apikey={api_key}"
+    print(url)
     async with session.get(url) as response:
         if response.status == 200:
             try:
@@ -40,10 +42,10 @@ async def fetch_rsi(session, symbol, message):
                         **Text(
                             "⚠️ Simbolo: ",
                             Bold(symbol),
-                            " no encontrado ❗️❗️",
+                            " no encontrado ❗️❗️\n", Bold("Backtest cancelado")
                         ).as_kwargs()
                     )
-                    return
+                    return None
                 return data
             except json.JSONDecodeError as e:
                 print("Error decoding JSON:", e)
@@ -322,21 +324,19 @@ async def get_monthly_alerts_counts(symbols, message):
 
         # print(responses)
         responses = await load_dummy_data()
-
-        for symbol, data in zip(symbols, responses):
-            if data and "Technical Analysis: RSI" in data:
-                rsi_data = data["Technical Analysis: RSI"]
-                for date, details in rsi_data.items():
-                    month = date.split("-")[1]
-                    if month not in monthly_action_counts:
-                        monthly_action_counts[month] = {
-                            "RSI above 70": 0,
-                            "RSI below 25": 0,
-                        }
-                    if float(details["RSI"]) > 70:
-                        monthly_action_counts[month]["RSI above 70"] += 1
-                    elif float(details["RSI"]) < 25:
-                        monthly_action_counts[month]["RSI below 25"] += 1
+        has_none = any(filter(lambda x: x is None, responses))
+        if not has_none:
+            for symbol, data in zip(symbols, responses):
+                if data and "Technical Analysis: RSI" in data:
+                    rsi_data = data["Technical Analysis: RSI"]
+                    for date, details in rsi_data.items():
+                        month = date.split("-")[1]
+                        if month not in monthly_action_counts:
+                            monthly_action_counts[month] = {
+                                "RSI below 25": 0,
+                            }
+                        if float(details["RSI"]) <= 25:
+                            monthly_action_counts[month]["RSI below 25"] += 1
     print(monthly_action_counts, "HERE")
     return monthly_action_counts
 
@@ -356,22 +356,21 @@ async def calculate_month_diff():
 
 
 async def calculate_monthly_avg_alerts(data):
-    # data is a dictionary, so use its values
-    total_actions_rsi_above_70 = sum(entry["RSI above 70"] for entry in data.values())
-    total_actions_rsi_below_25 = sum(entry["RSI below 25"] for entry in data.values())
+    print(data, "DATA")
+    result = {}
+    if data:
+        # data is a dictionary, so use its values
+        total_actions_rsi_below_25 = sum(entry["RSI below 25"] for entry in data.values())
 
-    # total_months = len(data)
-    total_months = await calculate_month_diff()
-    print(total_months, "MONTHS")
-    average_rsi_above_70 = round(total_actions_rsi_above_70 / total_months, 2)
-    average_rsi_below_25 = round(total_actions_rsi_below_25 / total_months, 2)
+        # total_months = len(data)
+        total_months = await calculate_month_diff()
+        print(total_months, "MONTHS")
+        average_rsi_below_25 = round(total_actions_rsi_below_25 / total_months, 2)
 
-    # result should be a dictionary to store the averages
-    result = {
-        "avg_above_70": average_rsi_above_70,
-        "avg_below_25": average_rsi_below_25,
-    }
-
+        # result should be a dictionary to store the averages
+        result = {
+            "avg_below_25": average_rsi_below_25,
+        }
     return result
 
 
@@ -405,17 +404,20 @@ async def backtest_handler(message: Message):
     data = await get_monthly_alerts_counts(symbols, message)
     result_avg_alerts = await calculate_monthly_avg_alerts(data)
     print(result_avg_alerts)
-    symb_msg = ", ".join(symbols)
-    await message.answer(
-        **Text(
-            f"🧪BackTest\nEmpresas analizadas: {symb_msg}",
-            "\n🧮 Media de alertas mensuales: \n" "🔹 Compra: ",
-            Bold(result_avg_alerts["avg_below_25"]),
-            "\n" "🔹 Venta: ",
-            Bold(result_avg_alerts["avg_above_70"]),
-        ).as_kwargs()
-    )
+    if result_avg_alerts: 
+        symb_msg = ", ".join(symbols)
+        await message.answer(
+            **Text(
+                f"🧪BackTest\nEmpresas analizadas: {symb_msg}",
+                "\n🧮 Media de alertas mensuales: \n" "🔹 Compra: ",
+                Bold(result_avg_alerts["avg_below_25"]),
+            ).as_kwargs()
+        )
     return
+
+
+# TODO 
+# Trim code, only is necessary show avg alerts when rsi < 25
 
 
 """
