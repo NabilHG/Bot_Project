@@ -5,14 +5,12 @@ from aiogram.utils.formatting import Text, Bold
 from bot import config
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from aiohttp_socks import ProxyType, ProxyConnector
 import aiohttp
 import asyncio
 import os
 import json
 import random
-import ssl
-import certifi
+
 
 router = Router()
 
@@ -21,7 +19,7 @@ async def load_dummy_data():
     data_list = []
     # folder_path = '..\\..\\dummy_data'
     folder_path = r"C:\Users\Nabil\Desktop\bot_project\dummy_data"
-    print(folder_path)
+    # print(folder_path)
     for filename in os.listdir(folder_path):
         if filename.endswith(".json"):
             file_path = os.path.join(folder_path, filename)
@@ -32,44 +30,13 @@ async def load_dummy_data():
     return data_list
 
 
-async def get_proxy(session, message):
-    url = "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&country=us,es,fr,it,ca,pt,gb,de&protocol=socks4&proxy_format=ipport&format=text&anonymity=Elite&timeout=819"
-    print(url)
-    async with session.get(url) as response:
-        if response.status == 200:
-            try:
-                data = await response.text()
-                if not data:
-                    await message.answer(
-                        **Text(
-                            "⚠️ Servidor para hacer Backtest ",
-                            Bold("no encontrado"),
-                            " prueba más tarde",
-                        ).as_kwargs()
-                    )
-                    return None
-                return data.strip().split(
-                    "\n"
-                )  # Divide el texto por líneas para obtener una lista de proxies
-            except Exception as e:
-                print("Error decoding JSON:", e)
-                return None
-        else:
-            await message.answer(
-                **Text(
-                    "⚠️ Servidor para hacer Backtest ",
-                    Bold("no encontrado"),
-                    " prueba más tarde",
-                ).as_kwargs()
-            )
-            return None
-
-
 """TODO get more alpha vantage keys and swap them when monthly_action_counts is empty"""
 
 
-async def fetch_rsi(session, symbol, message, proxy_ip, proxy_port):
+async def fetch_rsi(session, symbol, message, current_api_key_index):
     api_key = config.ALPHA_VANTAGE_API_KEY
+    # api_key = config.get_next_api_key(current_api_key_index)
+    print(api_key, "KEY")
     url = "https://www.alphavantage.co/query"
     params = {
         "function": "RSI",
@@ -80,95 +47,95 @@ async def fetch_rsi(session, symbol, message, proxy_ip, proxy_port):
         "apikey": api_key,
     }
 
-    # proxies = await get_proxy(session, message)
-    # proxy = random.choice(proxies).strip()  # Elige un proxy al azar y quita espacios en blanco
-    # print(proxy, "TESTETTEST")
-    # proxy_ip, proxy_port = proxy.split(':')  # Divide el proxy en IP y puerto
-    print(f"Selected Proxy: IP={proxy_ip}, Port={proxy_port}")
-
-    # Configuración del contexto SSL con certificados confiables
-    ssl_context = ssl.create_default_context(cafile=certifi.where())
-
-    # Configuración del TCPConnector con el contexto SSL
-    connector = aiohttp.TCPConnector(
-        ssl_context=ssl_context,
-        limit=None,  # Sin límite de conexiones
-        verify_ssl=True,  # Verificar SSL
-        use_dns_cache=True,  # Usar caché DNS
-    )
-
-    # Configuración del ProxyConnector con el TCPConnector
-    proxy_connector = ProxyConnector(
-        proxy_type=ProxyType.SOCKS4,
-        host=proxy_ip,
-        port=int(proxy_port),
-        rdns=True,  # Resolver DNS remoto
-    )
-
-    async with aiohttp.ClientSession(connector=connector) as session:
-        async with session.get(url, params=params) as response:
-            if response.status == 200:
-                try:
-                    data = await response.json()
-                    if not data:
-                        await message.answer(
-                            **Text(
-                                "⚠️ Simbolo: ",
-                                Bold(symbol),
-                                " no encontrado ❗️❗️\n",
-                                Bold("Backtest cancelado"),
-                            ).as_kwargs()
-                        )
-                        return None
-                    return data
-                except json.JSONDecodeError as e:
-                    print("Error decoding JSON:", e)
+    async with session.get(url, params=params) as response:
+        if response.status == 200:
+            try:
+                data = await response.json()
+                if not data:
+                    await message.answer(
+                        **Text(
+                            "⚠️ Simbolo: ",
+                            Bold(symbol),
+                            " no encontrado ❗️❗️\n",
+                            Bold("Backtest cancelado"),
+                        ).as_kwargs()
+                    )
                     return None
-            else:
-                await message.answer(
-                    **Text(
-                        "❌ Error al intentar obtener información de: ",
-                        Bold(symbol),
-                        f"\n 🚩 {response.status} 🚩",
-                    ).as_kwargs()
-                )
+                return data
+            except json.JSONDecodeError as e:
+                print("Error decoding JSON:", e)
                 return None
+        else:
+            await message.answer(
+                **Text(
+                    "❌ Error al intentar obtener información de: ",
+                    Bold(symbol),
+                    f"\n 🚩 {response.status} 🚩",
+                ).as_kwargs()
+            )
+            return None
 
 
-async def get_monthly_alerts_counts(symbols, message):
+async def contains_info(responses, substring):
+    if isinstance(responses, dict):
+        for key, value in responses.items():
+            if await contains_info(value, substring):
+                return True
+    elif isinstance(responses, list):
+        for item in responses:
+            if await contains_info(item, substring):
+                return True
+    elif isinstance(responses, str):
+        if substring in responses:
+            return True
+    return False
+
+
+async def get_monthly_alerts_counts(symbols, message, current_api_key_index):
     # print(symbols)
     monthly_action_counts = {}
     async with aiohttp.ClientSession() as session:
-        proxies = await get_proxy(session, message)
-        proxy = random.choice(proxies).strip()
-        proxy_ip, proxy_port = proxy.split(":")
+        tasks = [
+            fetch_rsi(
+                session,
+                symbol,
+                message,
+                current_api_key_index,
+            )
+            for symbol in symbols
+        ]
+        responses = await asyncio.gather(*tasks)
 
-        if proxy:
-            tasks = [
-                fetch_rsi(session, symbol, message, proxy_ip, proxy_port)
-                for symbol in symbols
-            ]
-            responses = await asyncio.gather(*tasks)
+        # substring = "rate limit is 25 requests per day"
 
-            # print(responses)
+        # if await contains_info(responses, substring):
+        #     print("CONTAINS")
+        #     current_api_key_index += 1
+        #     await get_monthly_alerts_counts(symbols, message, current_api_key_index)
+        # else:
+        #     print("NOT CONTAINS")
 
-            # responses = await load_dummy_data()
-            has_none = any(
-                filter(lambda x: x is None, responses)
-            )  # if true, not calculating backtest
-            if not has_none:
-                for symbol, data in zip(symbols, responses):
-                    if data and "Technical Analysis: RSI" in data:
-                        rsi_data = data["Technical Analysis: RSI"]
-                        for date, details in rsi_data.items():
-                            month = date.split("-")[1]
-                            if month not in monthly_action_counts:
-                                monthly_action_counts[month] = {
-                                    "RSI below 25": 0,
-                                }
-                            if float(details["RSI"]) <= 25:
-                                monthly_action_counts[month]["RSI below 25"] += 1
+        # responses = await load_dummy_data()
+        print(responses, "????")
+
+        has_none = any(
+            filter(lambda x: x is None, responses)
+        )  # if true, not calculating backtest
+        if not has_none:
+            for symbol, data in zip(symbols, responses):
+                if data and "Technical Analysis: RSI" in data:
+                    rsi_data = data["Technical Analysis: RSI"]
+                    for date, details in rsi_data.items():
+                        month = date.split("-")[1]
+                        if month not in monthly_action_counts:
+                            monthly_action_counts[month] = {
+                                "RSI below 25": 0,
+                            }
+                        if float(details["RSI"]) <= 25:
+                            monthly_action_counts[month]["RSI below 25"] += 1
+    
     print(monthly_action_counts, "HERE")
+
     return monthly_action_counts
 
 
@@ -197,7 +164,7 @@ async def calculate_monthly_avg_alerts(data):
 
         # total_months = len(data)
         total_months = await calculate_month_diff()
-        print(total_months, "MONTHS")
+        # print(total_months, "MONTHS")
         average_rsi_below_25 = round(total_actions_rsi_below_25 / total_months, 2)
 
         # result should be a dictionary to store the averages
@@ -205,6 +172,9 @@ async def calculate_monthly_avg_alerts(data):
             "avg_below_25": average_rsi_below_25,
         }
     return result
+
+
+current_api_key_index = 0
 
 
 @router.message(Command(commands=["backtest", "BACKTEST", "Backtest", "BackTest"]))
@@ -234,7 +204,7 @@ async def backtest_handler(message: Message):
         )
         return
 
-    data = await get_monthly_alerts_counts(symbols, message)
+    data = await get_monthly_alerts_counts(symbols, message, current_api_key_index)
     result_avg_alerts = await calculate_monthly_avg_alerts(data)
     print(result_avg_alerts)
     if result_avg_alerts:
