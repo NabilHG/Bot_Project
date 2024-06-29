@@ -9,8 +9,7 @@ import aiohttp
 import asyncio
 import os
 import json
-import random
-
+import subprocess
 
 router = Router()
 
@@ -34,8 +33,9 @@ async def load_dummy_data():
 
 
 async def fetch_rsi(session, symbol, message, current_api_key_index):
-    api_key = config.ALPHA_VANTAGE_API_KEY
-    # api_key = config.get_next_api_key(current_api_key_index)
+    #api_key = config.ALPHA_VANTAGE_API_KEY_DAILY
+    #api_key = 'IGXQYG9QDAU1PWD'
+    api_key = config.get_next_api_key(current_api_key_index)
     print(api_key, "KEY")
     url = "https://www.alphavantage.co/query"
     params = {
@@ -61,6 +61,7 @@ async def fetch_rsi(session, symbol, message, current_api_key_index):
                         ).as_kwargs()
                     )
                     return None
+                print(data, "ESTO ES DATA")
                 return data
             except json.JSONDecodeError as e:
                 print("Error decoding JSON:", e)
@@ -106,22 +107,27 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index):
         ]
         responses = await asyncio.gather(*tasks)
 
-        # substring = "rate limit is 25 requests per day"
-
-        # if await contains_info(responses, substring):
-        #     print("CONTAINS")
-        #     current_api_key_index += 1
-        #     await get_monthly_alerts_counts(symbols, message, current_api_key_index)
-        # else:
-        #     print("NOT CONTAINS")
+        substring = "rate limit is 25 requests per day"
+         
+        if await contains_info(responses, substring):
+            print("CONTAINS")
+            current_api_key_index += 1
+        #    activate vpn(desactivate when backtest is finished)
+            await get_monthly_alerts_counts(symbols, message, current_api_key_index)
+        else:
+            print("NOT CONTAINS")
+            # maybe do ternary operation to desactivate vpn
 
         # responses = await load_dummy_data()
-        print(responses, "????")
+        #print(responses, "????")
 
         has_none = any(
             filter(lambda x: x is None, responses)
         )  # if true, not calculating backtest
+        print(has_none, "has_none")
         if not has_none:
+            print("BYE")
+
             for symbol, data in zip(symbols, responses):
                 if data and "Technical Analysis: RSI" in data:
                     rsi_data = data["Technical Analysis: RSI"]
@@ -133,11 +139,30 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index):
                             }
                         if float(details["RSI"]) <= 25:
                             monthly_action_counts[month]["RSI below 25"] += 1
-    
+
     print(monthly_action_counts, "HERE")
 
     return monthly_action_counts
+'''
+    TODO
+    make the function to choose the vpn server
+'''
 
+async def activate_vpn(config_path):
+    try:
+        cmd = f'sudo openvpn --config {config_path}'
+        subprocess.run(cmd, shell=True, check=True)
+        print(f"VPN activated: {config_path}")
+    except subprocess.CalledPRocessError as ex:
+        print(f'Error while activating vpn: {ex}')
+
+async def desactivate_vpn():
+    try:
+        cmd = 'sudo pkill openvpn'
+        subprocess.run(cmd, shell=True, check=True)
+        print("VPN desactivated")
+    except subprocess.CalledPRocessError as ex:
+        print(f'Error while desactivating vpn: {ex}')
 
 async def calculate_month_diff():
     # First date with info
@@ -189,7 +214,7 @@ async def backtest_handler(message: Message):
             **Text(
                 "Por favor, proporciona los ",
                 Bold("símbolos"),
-                " de las empresas.\nEjemplo: /backtest AAPL,GOOGL,MSFT o /backtest AAPL GOOGL MSFT",
+                " de las empresas.\nEjemplo: /backtest AAPL, GOOGL, MSFT, IBM, META o /backtest AAPL GOOGL MSFT IBM META",
             ).as_kwargs()
         )
         return
@@ -218,11 +243,6 @@ async def backtest_handler(message: Message):
         )
     return
 
-
-# TODO
-# Trim code, only is necessary show avg alerts when rsi < 25
-# make a file with all the symbols of all bussines. Before executing a call,
-# verify the symbols exists in symbols_list.json
 
 """
     iterate through all symbols, for each one, execute backtest
