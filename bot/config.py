@@ -25,5 +25,18 @@ ALPHA_VANTAGE_API_KEY_DAILY = getenv("ALPHA_VANTAGE_API_KEY_DAILY")
 def get_next_api_key(current_index=0):
     return ALPHA_VANTAGE_API_KEYS[current_index % len(ALPHA_VANTAGE_API_KEYS)]
 
+VPN_SERVERS = [
+    getenv("VPN_SERVER_DENMARCK"),
+    getenv("VPN_SERVER_CANADA"),
+    getenv("VPN_SERVER_POLAND"),
+    getenv("VPN_SERVER_UK"),
+    getenv("VPN_SERVER_US1"),
+    getenv("VPN_SERVER_US2"),
+    getenv("VPN_SERVER_FRANCE"),
+]
+
+def get_next_vpn_server(current_index=0):
+    return VPN_SERVERS[current_index % len(VPN_SERVERS)]
+
 
 TIINGO_API_KEY = getenv("TIINGO_API_KEY")

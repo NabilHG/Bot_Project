@@ -10,6 +10,7 @@ import asyncio
 import os
 import json
 import subprocess
+import time
 
 router = Router()
 
@@ -61,7 +62,7 @@ async def fetch_rsi(session, symbol, message, current_api_key_index):
                         ).as_kwargs()
                     )
                     return None
-                print(data, "ESTO ES DATA")
+                # print(data, "ESTO ES DATA")
                 return data
             except json.JSONDecodeError as e:
                 print("Error decoding JSON:", e)
@@ -91,10 +92,22 @@ async def contains_info(responses, substring):
             return True
     return False
 
+async def get_public_ip():
+    async with aiohttp.ClientSession() as session:
+        async with session.get('https://api.ipify.org') as response:
+            return await response.text()
 
-async def get_monthly_alerts_counts(symbols, message, current_api_key_index):
-    # print(symbols)
+ 
+async def get_monthly_alerts_counts_orig(symbols, message, current_api_key_index, current_vpn_server_index):
     monthly_action_counts = {}
+
+    print(symbols)
+    if await is_vpn_active():
+        print("SIIII")
+    else:
+        print("NOOOO")
+    #await activate_vpn('/home/bot/Desktop/Bot_Project/vpnbook/vpnbook-openvpn-ca196/vpnbook-ca196-tcp443.ovpn')
+
     async with aiohttp.ClientSession() as session:
         tasks = [
             fetch_rsi(
@@ -111,22 +124,32 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index):
          
         if await contains_info(responses, substring):
             print("CONTAINS")
-            current_api_key_index += 1
-        #    activate vpn(desactivate when backtest is finished)
-            await get_monthly_alerts_counts(symbols, message, current_api_key_index)
+            if await is_vpn_active():
+                # change api key and vpn server
+                current_api_key_index += 1
+                current_vpn_server_index +=1
+                await desactivate_vpn()
+                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
+                await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
+            else :
+                current_api_key_index += 1
+                current_vpn_server_index +=1
+                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))        
+                await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
         else:
             print("NOT CONTAINS")
-            # maybe do ternary operation to desactivate vpn
-
+            if await is_vpn_active():
+                await desactivate_vpn()        
+        
         # responses = await load_dummy_data()
-        #print(responses, "????")
+        # print(responses, "????")
 
         has_none = any(
             filter(lambda x: x is None, responses)
         )  # if true, not calculating backtest
         print(has_none, "has_none")
         if not has_none:
-            print("BYE")
+            print("Calculating backtest")
 
             for symbol, data in zip(symbols, responses):
                 if data and "Technical Analysis: RSI" in data:
@@ -143,26 +166,168 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index):
     print(monthly_action_counts, "HERE")
 
     return monthly_action_counts
-'''
-    TODO
-    make the function to choose the vpn server
-'''
 
-async def activate_vpn(config_path):
+async def get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index):
+    monthly_action_counts = {}  # Reiniciar el diccionario para cada llamada de la función
+
+    print(symbols)
+    if await is_vpn_active():
+        print("SIIII")
+    else:
+        print("NOOOO")
+
+    async with aiohttp.ClientSession() as session:
+        tasks = [
+            fetch_rsi(
+                session,
+                symbol,
+                message,
+                current_api_key_index,
+            )
+            for symbol in symbols
+        ]
+        responses = await asyncio.gather(*tasks)
+
+        substring = "rate limit is 25 requests per day"
+         
+        if await contains_info(responses, substring):
+            print("CONTAINS")
+            if await is_vpn_active():
+                # change api key and vpn server
+                current_api_key_index += 1
+                current_vpn_server_index +=1
+                await desactivate_vpn()
+                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
+                monthly_action_counts.update(await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index))
+            else :
+                current_api_key_index += 1
+                current_vpn_server_index +=1
+                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))        
+                monthly_action_counts.update(await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index))
+        else:
+            print("NOT CONTAINS")
+            if await is_vpn_active():
+                await desactivate_vpn()        
+        
+        # Procesar las respuestas y acumular los resultados en monthly_action_counts
+        has_none = any(filter(lambda x: x is None, responses))  # Si es True, no calcular el backtest
+        print(has_none, "has_none")
+        if not has_none:
+            print("Calculating backtest")
+
+            for symbol, data in zip(symbols, responses):
+                if data and "Technical Analysis: RSI" in data:
+                    rsi_data = data["Technical Analysis: RSI"]
+                    for date, details in rsi_data.items():
+                        month = date.split("-")[1]
+                        if month not in monthly_action_counts:
+                            monthly_action_counts[month] = {
+                                "RSI below 25": 0,
+                            }
+                        if float(details["RSI"]) <= 25:
+                            monthly_action_counts[month]["RSI below 25"] += 1
+
+    print(monthly_action_counts, "HERE")
+
+    return monthly_action_counts
+
+async def activate_vpn_orig(config_path):
+    print(config_path)
+    print(await get_public_ip(), "IP1")
     try:
         cmd = f'sudo openvpn --config {config_path}'
-        subprocess.run(cmd, shell=True, check=True)
+        process = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        while True:
+            if await is_vpn_active():
+                print(f"VPN activated, exiting while loop: {config_path}")
+                break
+            else:
+                await asyncio.sleep(1)
+        
         print(f"VPN activated: {config_path}")
-    except subprocess.CalledPRocessError as ex:
+        print(await get_public_ip(), "IP2")
+    except subprocess.CalledProcessError as ex:
         print(f'Error while activating vpn: {ex}')
 
+async def activate_vpn(config_path):
+    print(config_path)
+    original_ip = await get_public_ip()
+    print(original_ip, "IP1")
+    
+    try:
+        cmd = f'sudo openvpn --config {config_path} --log /var/log/openvpn.log'
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        while True:
+            if await is_vpn_active():
+                print(f"VPN activated, exiting while loop: {config_path}")
+                break
+            else:
+                await asyncio.sleep(1)
+        
+        # Espera unos segundos para asegurar que la conexión esté estable
+        await asyncio.sleep(5)
+        
+        vpn_ip = await get_public_ip()
+        print(vpn_ip, "IP2")
+        
+        if original_ip == vpn_ip:
+            print("VPN IP and original IP are the same. Something went wrong.")
+        else:
+            print("VPN activated successfully and IP has changed.")
+
+    except subprocess.CalledProcessError as ex:
+        print(f'Error while activating VPN: {ex}')
 async def desactivate_vpn():
     try:
         cmd = 'sudo pkill openvpn'
-        subprocess.run(cmd, shell=True, check=True)
+        
+        # Iniciar el proceso pkill de openvpn de manera asíncrona
+        process = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        # Esperar a que termine el proceso de desactivación de la VPN
+        await process.communicate()
         print("VPN desactivated")
-    except subprocess.CalledPRocessError as ex:
+    except subprocess.CalledProcessError as ex:
         print(f'Error while desactivating vpn: {ex}')
+
+async def is_vpn_active():
+    try:
+        result = await asyncio.create_subprocess_shell(
+            "ip link",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await result.communicate()
+        
+        stdout_decoded = stdout.decode()
+        stderr_decoded = stderr.decode()
+
+        print(f"stderr: {stderr_decoded}")
+        print(f"stdout: {stdout_decoded}")
+
+        if any("tun" in line and "UP" in line for line in stdout_decoded.splitlines()):
+            print("VPN is active")
+            return True
+        else:
+            print("VPN is not active")
+            return False
+        
+    except asyncio.CancelledError:
+        raise
+    except Exception as ex:
+        print(f'Error while checking VPN state: {ex}')
+        return False
 
 async def calculate_month_diff():
     # First date with info
@@ -200,6 +365,7 @@ async def calculate_monthly_avg_alerts(data):
 
 
 current_api_key_index = 0
+current_vpn_server_index = 0
 
 
 @router.message(Command(commands=["backtest", "BACKTEST", "Backtest", "BackTest"]))
@@ -229,7 +395,7 @@ async def backtest_handler(message: Message):
         )
         return
 
-    data = await get_monthly_alerts_counts(symbols, message, current_api_key_index)
+    data = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
     result_avg_alerts = await calculate_monthly_avg_alerts(data)
     print(result_avg_alerts)
     if result_avg_alerts:
