@@ -4,13 +4,37 @@ This is a simple skeleton for a python bot using the python-telegram-bot library
 ## Virtual Environment
 To create a custom virtual environment for your dependencies to be contained, you can use the following command:
 ```bash
-python3 -m venv .venv ///// python -m venv bot_project (Windows)
+python3 -m venv .myenv 
 ```
 then you must 'use' that environment in the terminal with the following command:
 ```bash
-source .venv/bin/activate
+source myenv/bin/activate
 ```
 you will now be using that virtual environment. 
+
+### Having problems with virtual enviroment?
+Try to eliminate, create and update:
+
+Eliminate
+```bash
+sudo rm -rf myenv/
+```
+
+Create
+```bash
+python3 -m venv myenv
+```
+
+Activate
+```bash
+source myenv/bin/activate
+```
+
+Update
+```bash
+pip install --upgrade pip setuptools
+```
+
 ## Dependencies
 The first time you use the virtual environment, you will need to install the aiogram dependencies, already inside requierements.txt
 ```bash

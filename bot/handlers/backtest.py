@@ -5,12 +5,15 @@ from aiogram.utils.formatting import Text, Bold
 from bot import config
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from datetime import datetime
 import aiohttp
 import asyncio
 import os
 import json
 import subprocess
 import time
+import pandas as pd
+
 
 router = Router()
 
@@ -30,12 +33,7 @@ async def load_dummy_data():
     return data_list
 
 
-"""TODO get more alpha vantage keys and swap them when monthly_action_counts is empty"""
-
-
 async def fetch_rsi(session, symbol, message, current_api_key_index):
-    #api_key = config.ALPHA_VANTAGE_API_KEY_DAILY
-    #api_key = 'IGXQYG9QDAU1PWD'
     api_key = config.get_next_api_key(current_api_key_index)
     print(api_key, "KEY")
     url = "https://www.alphavantage.co/query"
@@ -97,84 +95,16 @@ async def get_public_ip():
         async with session.get('https://api.ipify.org') as response:
             return await response.text()
 
- 
-async def get_monthly_alerts_counts_orig(symbols, message, current_api_key_index, current_vpn_server_index):
-    monthly_action_counts = {}
-
-    print(symbols)
-    if await is_vpn_active():
-        print("SIIII")
-    else:
-        print("NOOOO")
-    #await activate_vpn('/home/bot/Desktop/Bot_Project/vpnbook/vpnbook-openvpn-ca196/vpnbook-ca196-tcp443.ovpn')
-
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            fetch_rsi(
-                session,
-                symbol,
-                message,
-                current_api_key_index,
-            )
-            for symbol in symbols
-        ]
-        responses = await asyncio.gather(*tasks)
-
-        substring = "rate limit is 25 requests per day"
-         
-        if await contains_info(responses, substring):
-            print("CONTAINS")
-            if await is_vpn_active():
-                # change api key and vpn server
-                current_api_key_index += 1
-                current_vpn_server_index +=1
-                await desactivate_vpn()
-                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
-                await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
-            else :
-                current_api_key_index += 1
-                current_vpn_server_index +=1
-                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))        
-                await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
-        else:
-            print("NOT CONTAINS")
-            if await is_vpn_active():
-                await desactivate_vpn()        
-        
-        # responses = await load_dummy_data()
-        # print(responses, "????")
-
-        has_none = any(
-            filter(lambda x: x is None, responses)
-        )  # if true, not calculating backtest
-        print(has_none, "has_none")
-        if not has_none:
-            print("Calculating backtest")
-
-            for symbol, data in zip(symbols, responses):
-                if data and "Technical Analysis: RSI" in data:
-                    rsi_data = data["Technical Analysis: RSI"]
-                    for date, details in rsi_data.items():
-                        month = date.split("-")[1]
-                        if month not in monthly_action_counts:
-                            monthly_action_counts[month] = {
-                                "RSI below 25": 0,
-                            }
-                        if float(details["RSI"]) <= 25:
-                            monthly_action_counts[month]["RSI below 25"] += 1
-
-    print(monthly_action_counts, "HERE")
-
-    return monthly_action_counts
 
 async def get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index):
-    monthly_action_counts = {}  # Reiniciar el diccionario para cada llamada de la función
+    monthly_action_counts = {}  
 
     print(symbols)
-    if await is_vpn_active():
-        print("SIIII")
+    if not await is_vpn_active():
+        print("NOOO")
+        await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
     else:
-        print("NOOOO")
+        print("SIII")
 
     async with aiohttp.ClientSession() as session:
         tasks = [
@@ -209,6 +139,9 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index, cur
             if await is_vpn_active():
                 await desactivate_vpn()        
         
+        #Responses has all the data about RSI
+        print(responses)
+
         # Procesar las respuestas y acumular los resultados en monthly_action_counts
         has_none = any(filter(lambda x: x is None, responses))  # Si es True, no calcular el backtest
         print(has_none, "has_none")
@@ -229,30 +162,8 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index, cur
 
     print(monthly_action_counts, "HERE")
 
-    return monthly_action_counts
+    return monthly_action_counts, responses
 
-async def activate_vpn_orig(config_path):
-    print(config_path)
-    print(await get_public_ip(), "IP1")
-    try:
-        cmd = f'sudo openvpn --config {config_path}'
-        process = await asyncio.create_subprocess_shell(
-            cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-
-        while True:
-            if await is_vpn_active():
-                print(f"VPN activated, exiting while loop: {config_path}")
-                break
-            else:
-                await asyncio.sleep(1)
-        
-        print(f"VPN activated: {config_path}")
-        print(await get_public_ip(), "IP2")
-    except subprocess.CalledProcessError as ex:
-        print(f'Error while activating vpn: {ex}')
 
 async def activate_vpn(config_path):
     print(config_path)
@@ -270,7 +181,6 @@ async def activate_vpn(config_path):
             else:
                 await asyncio.sleep(1)
         
-        # Espera unos segundos para asegurar que la conexión esté estable
         await asyncio.sleep(5)
         
         vpn_ip = await get_public_ip()
@@ -283,19 +193,18 @@ async def activate_vpn(config_path):
 
     except subprocess.CalledProcessError as ex:
         print(f'Error while activating VPN: {ex}')
+
 async def desactivate_vpn():
     try:
         cmd = 'sudo pkill openvpn'
+                
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
-        # Iniciar el proceso pkill de openvpn de manera asíncrona
-        process = await asyncio.create_subprocess_shell(
-            cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        
-        # Esperar a que termine el proceso de desactivación de la VPN
-        await process.communicate()
+        while True:
+            if await is_vpn_active():
+                break
+            else:
+                await asyncio.sleep(1)
         print("VPN desactivated")
     except subprocess.CalledProcessError as ex:
         print(f'Error while desactivating vpn: {ex}')
@@ -330,12 +239,11 @@ async def is_vpn_active():
         return False
 
 async def calculate_month_diff():
-    # First date with info
+
     ancient_date = datetime.strptime("1999-11-15", "%Y-%m-%d")
 
     current_date = datetime.now()
 
-    # Calculate difference
     delta = relativedelta(current_date, ancient_date)
 
     total_months = delta.years * 12 + delta.months
@@ -347,26 +255,188 @@ async def calculate_monthly_avg_alerts(data):
     print(data, "DATA")
     result = {}
     if data:
-        # data is a dictionary, so use its values
         total_actions_rsi_below_25 = sum(
             entry["RSI below 25"] for entry in data.values()
         )
 
-        # total_months = len(data)
         total_months = await calculate_month_diff()
-        # print(total_months, "MONTHS")
+
         average_rsi_below_25 = round(total_actions_rsi_below_25 / total_months, 2)
 
-        # result should be a dictionary to store the averages
         result = {
             "avg_below_25": average_rsi_below_25,
         }
     return result
 
 
+async def fetch_close_price(session, symbol, message, current_api_key_index):
+    api_key = config.get_next_api_key(current_api_key_index)
+    print(api_key, "KEY")
+    url = "https://www.alphavantage.co/query"
+    params = {
+        "function": "TIME_SERIES_DAILY",
+        "symbol": symbol,
+        "outputsize": "compact",
+        "apikey": api_key,
+    }
+
+    async with session.get(url, params=params) as response:
+        if response.status == 200:
+            try:
+                data = await response.json()
+                if not data:
+                    await message.answer(
+                        **Text(
+                            "⚠️ Simbolo: ",
+                            Bold(symbol),
+                            " no encontrado ❗️❗️\n",
+                            Bold("Backtest cancelado"),
+                        ).as_kwargs()
+                    )
+                    return None
+                # print(data, "ESTO ES DATA")
+                return data
+            except json.JSONDecodeError as e:
+                print("Error decoding JSON:", e)
+                return None
+        else:
+            await message.answer(
+                **Text(
+                    "❌ Error al intentar obtener información de: ",
+                    Bold(symbol),
+                    f"\n 🚩 {response.status} 🚩",
+                ).as_kwargs()
+            )
+            return None
+
+async def test_func(rsi_data, closing_prices):
+    # Convertir los datos de RSI a un DataFrame
+    rsi_df = pd.DataFrame.from_dict(rsi_data, orient='index')
+    rsi_df.index = pd.to_datetime(rsi_df.index)
+    rsi_df['RSI'] = rsi_df['RSI'].astype(float)
+
+    # Convertir los datos de precios de cierre a un DataFrame
+    close_df = pd.DataFrame.from_dict(closing_prices, orient='index')
+    close_df.index = pd.to_datetime(close_df.index)
+    close_df.rename(columns={'close': 'Close'}, inplace=True)
+    close_df['Close'] = close_df['close'].astype(float)
+
+    # Verificar si las columnas existen
+    if 'close' not in close_df.columns:
+        raise KeyError("La columna '4. close' no se encuentra en los datos de precios de cierre")
+    else:
+        print("*?*?*")
+    # Unir los DataFrames en uno solo
+    df = pd.merge(rsi_df, close_df, left_index=True, right_index=True)
+    df.sort_index(inplace=True)
+    print(df.head())  # Verificar que el DataFrame se creó correctamente
+    return df
+
+async def test_calculate_drwadown(df):
+    holding = False
+    entry_price = 0
+    portfolio_value = []
+    drawdowns = []
+
+    # Simular las transacciones
+    for index, row in df.iterrows():
+        if not holding and row['RSI'] < 25:
+            holding = True
+            entry_price = row['Close']
+        elif holding and row['RSI'] > 70:
+            holding = False
+            exit_price = row['Close']
+        
+        # Calcular el valor del portafolio
+        if holding:
+            portfolio_value.append(row['Close'])
+        else:
+            portfolio_value.append(0)
+
+    # Convertir lista de valores del portafolio a una serie de pandas
+    portfolio_series = pd.Series(portfolio_value, index=df.index)
+
+    # Calcular el drawdown
+    rolling_max = portfolio_series.cummax()
+    drawdown = (portfolio_series - rolling_max) / rolling_max
+    max_drawdown = drawdown.min()
+    
+    print(max_drawdown, "????")
+    return max_drawdown
+
+async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api_key_index, current_vpn_server_index):
+    maximum_drawdown = {}
+    print(symbols)
+    if not await is_vpn_active():
+        print("NOOO")
+        await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
+    else:
+        print("SIII")
+
+    async with aiohttp.ClientSession() as session:
+        tasks = [
+            fetch_close_price(
+                session,
+                symbol,
+                message,
+                current_api_key_index,
+            )
+            for symbol in symbols
+        ]
+        responses = await asyncio.gather(*tasks)
+
+        print(responses)
+
+        substring = "rate limit is 25 requests per day"
+         
+        #DO RECUSIVITY
+
+        if await contains_info(responses, substring):
+            print("CONTAINS")
+            if await is_vpn_active():
+                # change api key and vpn server
+                current_api_key_index += 1
+                current_vpn_server_index +=1
+                await desactivate_vpn()
+                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
+                result = await calculate_maximum_drawdown(symbols, message, current_api_key_index, current_vpn_server_index)
+                if result:
+                    maximum_drawdown.update(result)
+            else :
+                current_api_key_index += 1
+                current_vpn_server_index +=1
+                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))        
+                result = await calculate_maximum_drawdown(symbols, message, current_api_key_index, current_vpn_server_index)
+                if result:
+                    maximum_drawdown.update(result)
+        else:
+            print("NOT CONTAINS")
+            if await is_vpn_active():
+                await desactivate_vpn()        
+        
+        #Responses has all the data about RSI
+        closing_prices = {}
+        # print(responses)
+        for response in responses:
+            for date, prices in response["Time Series (Daily)"].items():
+                closing_prices[date] = {"close": prices["4. close"]}
+
+        print(closing_prices, "INTERESA")
+
+        rsi_data = {}
+        for data in data_rsi_raw:
+            for date, rsi in data["Technical Analysis: RSI"].items():
+                rsi_data[date] = rsi
+        # print(rsi_data, "INTERESA 2")
+        
+        df_data = await test_func(rsi_data, closing_prices)
+        mdre = await test_calculate_drwadown(df_data)
+        print(mdre, "HUNGRY")
+    return maximum_drawdown
+
+
 current_api_key_index = 0
 current_vpn_server_index = 0
-
 
 @router.message(Command(commands=["backtest", "BACKTEST", "Backtest", "BackTest"]))
 async def backtest_handler(message: Message):
@@ -384,7 +454,7 @@ async def backtest_handler(message: Message):
             ).as_kwargs()
         )
         return
-
+    
     # Process the arguments to handle both comma and space-separated symbols
     raw_symbols = args[1].replace(",", " ").split()
     symbols = [symbol.strip().upper() for symbol in raw_symbols]
@@ -394,10 +464,13 @@ async def backtest_handler(message: Message):
             **Text("No se han proporcionado símbolos válidos.").as_kwargs()
         )
         return
-
-    data = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
+    
+    data, data_rsi_raw = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
     result_avg_alerts = await calculate_monthly_avg_alerts(data)
-    print(result_avg_alerts)
+    a = await calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api_key_index, current_vpn_server_index)
+    print(a, "AAAAAAA") 
+    # print(result_avg_alerts)
+    result_avg_alerts = '' #Temporal
     if result_avg_alerts:
         symb_msg = ", ".join(symbols)
         await message.answer(
