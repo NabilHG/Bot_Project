@@ -128,19 +128,23 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index, cur
                 current_vpn_server_index +=1
                 await desactivate_vpn()
                 await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
-                monthly_action_counts.update(await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index))
+                counts, nested_responses = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
+                monthly_action_counts.update(counts)
+                # responses.extend(nested_responses)
             else :
                 current_api_key_index += 1
                 current_vpn_server_index +=1
                 await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))        
-                monthly_action_counts.update(await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index))
+                counts, nested_responses = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
+                monthly_action_counts.update(counts)
+                # responses.extend(nested_responses)
         else:
             print("NOT CONTAINS")
             if await is_vpn_active():
                 await desactivate_vpn()        
         
         #Responses has all the data about RSI
-        print(responses)
+        # print(responses)
 
         # Procesar las respuestas y acumular los resultados en monthly_action_counts
         has_none = any(filter(lambda x: x is None, responses))  # Si es True, no calcular el backtest
@@ -160,7 +164,7 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index, cur
                         if float(details["RSI"]) <= 25:
                             monthly_action_counts[month]["RSI below 25"] += 1
 
-    print(monthly_action_counts, "HERE")
+    # print(monthly_action_counts, "HERE")
 
     return monthly_action_counts, responses
 
@@ -309,7 +313,7 @@ async def fetch_close_price(session, symbol, message, current_api_key_index):
             )
             return None
 
-async def test_func(rsi_data, closing_prices):
+async def test_func(rsi_data, closing_prices, symbols):
     # Convertir los datos de RSI a un DataFrame
     rsi_df = pd.DataFrame.from_dict(rsi_data, orient='index')
     rsi_df.index = pd.to_datetime(rsi_df.index)
@@ -319,18 +323,16 @@ async def test_func(rsi_data, closing_prices):
     close_df = pd.DataFrame.from_dict(closing_prices, orient='index')
     close_df.index = pd.to_datetime(close_df.index)
     close_df.rename(columns={'close': 'Close'}, inplace=True)
-    close_df['Close'] = close_df['close'].astype(float)
+    close_df['Close'] = close_df['Close'].astype(float)
 
-    # Verificar si las columnas existen
-    if 'close' not in close_df.columns:
-        raise KeyError("La columna '4. close' no se encuentra en los datos de precios de cierre")
-    else:
-        print("*?*?*")
     # Unir los DataFrames en uno solo
     df = pd.merge(rsi_df, close_df, left_index=True, right_index=True)
+     
     df.sort_index(inplace=True)
-    print(df.head())  # Verificar que el DataFrame se creó correctamente
+    print(df.head(), "ESTO")  # Verificar que el DataFrame se creó correctamente
+
     return df
+
 
 async def test_calculate_drwadown(df):
     holding = False
@@ -385,7 +387,7 @@ async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api
         ]
         responses = await asyncio.gather(*tasks)
 
-        print(responses)
+        # print(responses)
 
         substring = "rate limit is 25 requests per day"
          
@@ -399,14 +401,14 @@ async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api
                 current_vpn_server_index +=1
                 await desactivate_vpn()
                 await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
-                result = await calculate_maximum_drawdown(symbols, message, current_api_key_index, current_vpn_server_index)
+                result = await calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api_key_index, current_vpn_server_index)
                 if result:
                     maximum_drawdown.update(result)
             else :
                 current_api_key_index += 1
                 current_vpn_server_index +=1
                 await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))        
-                result = await calculate_maximum_drawdown(symbols, message, current_api_key_index, current_vpn_server_index)
+                result = await calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api_key_index, current_vpn_server_index)
                 if result:
                     maximum_drawdown.update(result)
         else:
@@ -416,22 +418,34 @@ async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api
         
         #Responses has all the data about RSI
         closing_prices = {}
-        # print(responses)
         for response in responses:
+            symbol = response["Meta Data"]["2. Symbol"]
+            if symbol not in closing_prices:
+                closing_prices[symbol] = {}
+
             for date, prices in response["Time Series (Daily)"].items():
-                closing_prices[date] = {"close": prices["4. close"]}
+                closing_prices[symbol][date] = {"close": prices["4. close"]}
 
-        print(closing_prices, "INTERESA")
-
+        # print(closing_prices, "INTERESA")
+        print(data_rsi_raw, "a")
+        print(symbols, "A")
         rsi_data = {}
+        # for data in data_rsi_raw:
+        #     for date, rsi in data["Technical Analysis: RSI"].items():
+        #         rsi_data[date] = rsi
+
         for data in data_rsi_raw:
+            symbol = data["Meta Data"]["1: Symbol"]
+            if symbol not in data_rsi_raw:
+                rsi_data[symbol] = {}
+
             for date, rsi in data["Technical Analysis: RSI"].items():
-                rsi_data[date] = rsi
-        # print(rsi_data, "INTERESA 2")
+                rsi_data[symbol][date] = rsi
+        print(rsi_data, "INTERESA 2")
         
-        df_data = await test_func(rsi_data, closing_prices)
-        mdre = await test_calculate_drwadown(df_data)
-        print(mdre, "HUNGRY")
+        # df_data = await test_func(rsi_data, closing_prices, symbols)
+        # mdre = await test_calculate_drwadown(df_data)
+
     return maximum_drawdown
 
 
@@ -467,6 +481,7 @@ async def backtest_handler(message: Message):
     
     data, data_rsi_raw = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
     result_avg_alerts = await calculate_monthly_avg_alerts(data)
+    print(current_vpn_server_index, "<---")
     a = await calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api_key_index, current_vpn_server_index)
     print(a, "AAAAAAA") 
     # print(result_avg_alerts)
