@@ -18,10 +18,8 @@ import pandas as pd
 router = Router()
 
 
-async def load_dummy_data():
+async def load_dummy_data(folder_path):
     data_list = []
-    # folder_path = '..\\..\\dummy_data'
-    folder_path = r"C:\Users\Nabil\Desktop\bot_project\dummy_data"
     # print(folder_path)
     for filename in os.listdir(folder_path):
         if filename.endswith(".json"):
@@ -107,19 +105,19 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index, cur
         print("SIII")
 
     async with aiohttp.ClientSession() as session:
-        tasks = [
-            fetch_rsi(
-                session,
-                symbol,
-                message,
-                current_api_key_index,
-            )
-            for symbol in symbols
-        ]
-        responses = await asyncio.gather(*tasks)
+        # tasks = [
+        #     fetch_rsi(
+        #         session,
+        #         symbol,
+        #         message,
+        #         current_api_key_index,
+        #     )
+        #     for symbol in symbols
+        # ]
+        # responses = await asyncio.gather(*tasks)
 
+        responses = await load_dummy_data('/home/bot/Desktop/Bot_Project/dummy_data_rsi')
         substring = "rate limit is 25 requests per day"
-         
         if await contains_info(responses, substring):
             print("CONTAINS")
             if await is_vpn_active():
@@ -227,7 +225,7 @@ async def is_vpn_active():
         stderr_decoded = stderr.decode()
 
         print(f"stderr: {stderr_decoded}")
-        print(f"stdout: {stdout_decoded}")
+        # print(f"stdout: {stdout_decoded}")
 
         if any("tun" in line and "UP" in line for line in stdout_decoded.splitlines()):
             print("VPN is active")
@@ -376,21 +374,22 @@ async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api
         print("SIII")
 
     async with aiohttp.ClientSession() as session:
-        tasks = [
-            fetch_close_price(
-                session,
-                symbol,
-                message,
-                current_api_key_index,
-            )
-            for symbol in symbols
-        ]
-        responses = await asyncio.gather(*tasks)
+        # tasks = [
+        #     fetch_close_price(
+        #         session,
+        #         symbol,
+        #         message,
+        #         current_api_key_index,
+        #     )
+        #     for symbol in symbols
+        # ]
+        # responses = await asyncio.gather(*tasks)
 
         # print(responses)
 
         substring = "rate limit is 25 requests per day"
          
+        responses = await load_dummy_data('/home/bot/Desktop/Bot_Project/bot/dummy_data_price') 
         #DO RECUSIVITY
 
         if await contains_info(responses, substring):
@@ -426,8 +425,8 @@ async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api
             for date, prices in response["Time Series (Daily)"].items():
                 closing_prices[symbol][date] = {"close": prices["4. close"]}
 
-        # print(closing_prices, "INTERESA")
-        print(data_rsi_raw, "a")
+        print(closing_prices, "INTERESA")
+        # print(data_rsi_raw, "a")
         print(symbols, "A")
         rsi_data = {}
         # for data in data_rsi_raw:
@@ -445,9 +444,73 @@ async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api
         
         # df_data = await test_func(rsi_data, closing_prices, symbols)
         # mdre = await test_calculate_drwadown(df_data)
+        df = await epf(rsi_data, closing_prices)
+
+        await tnotw(df, symbols)
 
     return maximum_drawdown
 
+async def epf(rsi_data, closing_prices):
+    close_df = pd.DataFrame({k: {pd.to_datetime(date): float(v['close']) for date, v in val.items()} for k, val in closing_prices.items()}) 
+    # Convertir datos de RSI a DataFrame 
+    rsi_df = pd.DataFrame({k: {pd.to_datetime(date): float(v['RSI']) for date, v in val.items()} for k, val in rsi_data.items()}) 
+    # Renombrar las columnas de los DataFrames para diferenciarlas 
+    close_df = close_df.rename(columns=lambda x: f"{x}_Close") 
+    rsi_df = rsi_df.rename(columns=lambda x: f"{x}_RSI") 
+    # Unir los DataFrames en uno solo 
+    combined_df = pd.concat([close_df, rsi_df], axis=1) 
+    # Ordenar por fecha 
+    combined_df = combined_df.sort_index() 
+    print(combined_df, "EPF")
+
+    return combined_df
+
+
+async def tnotw(df, symbols):
+    initial_cash = 100000  # Capital inicial
+    cash = initial_cash
+    portfolio = {ticker: 0 for ticker in symbols}
+    buy_prices = {ticker: None for ticker in symbols}
+    portfolio_value = []
+
+    # Simular las operaciones
+    for date, row in df.iterrows():
+        close_prices = {ticker: row[f'{ticker}_Close'] for ticker in portfolio.keys()}
+        rsis = {ticker: row[f'{ticker}_RSI'] for ticker in portfolio.keys()}
+    
+        # Señales de compra y venta
+        for ticker in portfolio.keys():
+            if rsis[ticker] < 25 and cash > 0:
+                shares_to_buy = (cash / len(portfolio.keys())) // close_prices[ticker]
+                if shares_to_buy > 0:
+                    cash -= shares_to_buy * close_prices[ticker]
+                    portfolio[ticker] += shares_to_buy
+                    buy_prices[ticker] = close_prices[ticker]
+            elif rsis[ticker] > 70 and portfolio[ticker] > 0:
+                cash += portfolio[ticker] * close_prices[ticker]
+                portfolio[ticker] = 0
+                buy_prices[ticker] = None
+            elif buy_prices[ticker] is not None and close_prices[ticker] < buy_prices[ticker] * 0.9:
+                cash += portfolio[ticker] * close_prices[ticker]
+                portfolio[ticker] = 0
+                buy_prices[ticker] = None
+    
+    # Valor actual de la cartera
+    current_value = cash + sum(portfolio[ticker] * close_prices[ticker] for ticker in portfolio.keys())
+    portfolio_value.append(current_value)
+
+    # Crear un DataFrame con la curva de capital
+    df['Portfolio Value'] = portfolio_value
+
+    # Calcular el maximum drawdown
+    df['Peak'] = df['Portfolio Value'].cummax()
+    df['Drawdown'] = df['Portfolio Value'] - df['Peak']
+    df['Drawdown Percent'] = df['Drawdown'] / df['Peak']
+
+    # Maximum drawdown
+    max_drawdown = df['Drawdown Percent'].min()
+
+    print(f'Maximum Drawdown: {max_drawdown * 100:.2f}%')
 
 current_api_key_index = 0
 current_vpn_server_index = 0
