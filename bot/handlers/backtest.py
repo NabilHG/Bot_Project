@@ -116,7 +116,7 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index, cur
         # ]
         # responses = await asyncio.gather(*tasks)
 
-        responses = await load_dummy_data('/home/bot/Desktop/Bot_Project/dummy_data_rsi')
+        responses = await load_dummy_data('/home/bot/Desktop/Bot_Project/bot/dummy_data_rsi')
         substring = "rate limit is 25 requests per day"
         if await contains_info(responses, substring):
             print("CONTAINS")
@@ -494,14 +494,16 @@ async def tnotw(df, symbols):
                 cash += portfolio[ticker] * close_prices[ticker]
                 portfolio[ticker] = 0
                 buy_prices[ticker] = None
-    
-    # Valor actual de la cartera
-    current_value = cash + sum(portfolio[ticker] * close_prices[ticker] for ticker in portfolio.keys())
-    portfolio_value.append(current_value)
+
+        # Valor actual de la cartera en cada paso
+        current_value = cash + sum(portfolio[ticker] * close_prices[ticker] for ticker in portfolio.keys())
+        portfolio_value.append(current_value)
 
     # Crear un DataFrame con la curva de capital
     df['Portfolio Value'] = portfolio_value
-
+    print(df['Portfolio Value'], "portfolio value")
+    max_drawdown_PANDAS = max(1 - df['Portfolio Value']/df['Portfolio Value'].rolling(window=len(df['Portfolio Value']), min_periods=0).max())
+    print(max_drawdown_PANDAS, "max_drawdown PANDAS")
     # Calcular el maximum drawdown
     df['Peak'] = df['Portfolio Value'].cummax()
     df['Drawdown'] = df['Portfolio Value'] - df['Peak']
@@ -511,6 +513,7 @@ async def tnotw(df, symbols):
     max_drawdown = df['Drawdown Percent'].min()
 
     print(f'Maximum Drawdown: {max_drawdown * 100:.2f}%')
+
 
 current_api_key_index = 0
 current_vpn_server_index = 0
