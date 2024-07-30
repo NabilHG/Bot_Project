@@ -31,7 +31,7 @@ async def load_dummy_data(folder_path):
     return data_list
 
 
-async def fetch_rsi(session, symbol, message, current_api_key_index):
+async def fetch_rsi(session, symbol, current_api_key_index, message=None):
     api_key = config.get_next_api_key(current_api_key_index)
     print(api_key, "KEY")
     url = "https://www.alphavantage.co/query"
@@ -109,8 +109,8 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index, cur
         #     fetch_rsi(
         #         session,
         #         symbol,
-        #         message,
         #         current_api_key_index,
+        #         message,
         #     )
         #     for symbol in symbols
         # ]
@@ -121,30 +121,29 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index, cur
         if await contains_info(responses, substring):
             print("CONTAINS")
             if await is_vpn_active():
-                # change api key and vpn server
-                current_api_key_index += 1
-                current_vpn_server_index +=1
                 await desactivate_vpn()
-                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
-                counts, nested_responses = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
-                monthly_action_counts.update(counts)
-                # responses.extend(nested_responses)
-            else :
-                current_api_key_index += 1
-                current_vpn_server_index +=1
-                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))        
-                counts, nested_responses = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
-                monthly_action_counts.update(counts)
-                # responses.extend(nested_responses)
+            
+            # change api key and vpn server
+            current_api_key_index += 1
+            current_vpn_server_index += 1
+
+            await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))       
+            
+            #call recursively 
+            counts, nested_responses = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
+            # counts, nested_responses = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
+            #update
+            monthly_action_counts.update(counts)
         else:
             print("NOT CONTAINS")
             if await is_vpn_active():
                 await desactivate_vpn()        
-        
+
+          
+
         #Responses has all the data about RSI
         # print(responses)
 
-        # Procesar las respuestas y acumular los resultados en monthly_action_counts
         has_none = any(filter(lambda x: x is None, responses))  # Si es True, no calcular el backtest
         print(has_none, "has_none")
         if not has_none:
@@ -268,17 +267,19 @@ async def calculate_monthly_avg_alerts(data):
         result = {
             "avg_below_25": average_rsi_below_25,
         }
+
+        print(f'Media de alertas de compra: {result}')
     return result
 
 
-async def fetch_close_price(session, symbol, message, current_api_key_index):
+async def fetch_close_price(session, symbol, current_api_key_index, message=None):
     api_key = config.get_next_api_key(current_api_key_index)
     print(api_key, "KEY")
     url = "https://www.alphavantage.co/query"
     params = {
         "function": "TIME_SERIES_DAILY",
         "symbol": symbol,
-        "outputsize": "compact",
+        "outputsize": "full",
         "apikey": api_key,
     }
 
@@ -311,58 +312,6 @@ async def fetch_close_price(session, symbol, message, current_api_key_index):
             )
             return None
 
-async def test_func(rsi_data, closing_prices, symbols):
-    # Convertir los datos de RSI a un DataFrame
-    rsi_df = pd.DataFrame.from_dict(rsi_data, orient='index')
-    rsi_df.index = pd.to_datetime(rsi_df.index)
-    rsi_df['RSI'] = rsi_df['RSI'].astype(float)
-
-    # Convertir los datos de precios de cierre a un DataFrame
-    close_df = pd.DataFrame.from_dict(closing_prices, orient='index')
-    close_df.index = pd.to_datetime(close_df.index)
-    close_df.rename(columns={'close': 'Close'}, inplace=True)
-    close_df['Close'] = close_df['Close'].astype(float)
-
-    # Unir los DataFrames en uno solo
-    df = pd.merge(rsi_df, close_df, left_index=True, right_index=True)
-     
-    df.sort_index(inplace=True)
-    print(df.head(), "ESTO")  # Verificar que el DataFrame se creó correctamente
-
-    return df
-
-
-async def test_calculate_drwadown(df):
-    holding = False
-    entry_price = 0
-    portfolio_value = []
-    drawdowns = []
-
-    # Simular las transacciones
-    for index, row in df.iterrows():
-        if not holding and row['RSI'] < 25:
-            holding = True
-            entry_price = row['Close']
-        elif holding and row['RSI'] > 70:
-            holding = False
-            exit_price = row['Close']
-        
-        # Calcular el valor del portafolio
-        if holding:
-            portfolio_value.append(row['Close'])
-        else:
-            portfolio_value.append(0)
-
-    # Convertir lista de valores del portafolio a una serie de pandas
-    portfolio_series = pd.Series(portfolio_value, index=df.index)
-
-    # Calcular el drawdown
-    rolling_max = portfolio_series.cummax()
-    drawdown = (portfolio_series - rolling_max) / rolling_max
-    max_drawdown = drawdown.min()
-    
-    print(max_drawdown, "????")
-    return max_drawdown
 
 async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api_key_index, current_vpn_server_index):
     maximum_drawdown = {}
@@ -378,8 +327,8 @@ async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api
         #     fetch_close_price(
         #         session,
         #         symbol,
-        #         message,
         #         current_api_key_index,
+        #         message,
         #     )
         #     for symbol in symbols
         # ]
@@ -390,31 +339,27 @@ async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api
         substring = "rate limit is 25 requests per day"
          
         responses = await load_dummy_data('/home/bot/Desktop/Bot_Project/bot/dummy_data_price') 
-        #DO RECUSIVITY
 
         if await contains_info(responses, substring):
             print("CONTAINS")
             if await is_vpn_active():
-                # change api key and vpn server
-                current_api_key_index += 1
-                current_vpn_server_index +=1
                 await desactivate_vpn()
-                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
-                result = await calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api_key_index, current_vpn_server_index)
-                if result:
-                    maximum_drawdown.update(result)
-            else :
-                current_api_key_index += 1
-                current_vpn_server_index +=1
-                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))        
-                result = await calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api_key_index, current_vpn_server_index)
-                if result:
-                    maximum_drawdown.update(result)
+            
+            # change api key and vpn server
+            current_api_key_index += 1
+            current_vpn_server_index += 1
+            # call recursively 
+            await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))        
+            result = await calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api_key_index, current_vpn_server_index)
+            if result:
+                maximum_drawdown.update(result)
         else:
             print("NOT CONTAINS")
             if await is_vpn_active():
                 await desactivate_vpn()        
+                            
         
+
         #Responses has all the data about RSI
         closing_prices = {}
         for response in responses:
@@ -425,9 +370,9 @@ async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api
             for date, prices in response["Time Series (Daily)"].items():
                 closing_prices[symbol][date] = {"close": prices["4. close"]}
 
-        print(closing_prices, "INTERESA")
+        # print(closing_prices, "INTERESA")
         # print(data_rsi_raw, "a")
-        print(symbols, "A")
+        # print(symbols, "A")
         rsi_data = {}
         # for data in data_rsi_raw:
         #     for date, rsi in data["Technical Analysis: RSI"].items():
@@ -440,17 +385,17 @@ async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api
 
             for date, rsi in data["Technical Analysis: RSI"].items():
                 rsi_data[symbol][date] = rsi
-        print(rsi_data, "INTERESA 2")
+        # print(rsi_data, "INTERESA 2")
         
         # df_data = await test_func(rsi_data, closing_prices, symbols)
         # mdre = await test_calculate_drwadown(df_data)
-        df = await epf(rsi_data, closing_prices)
+        df = await get_dataframe(rsi_data, closing_prices)
 
-        await tnotw(df, symbols)
+        await calculate_drawdown_profit(df, symbols)
 
     return maximum_drawdown
 
-async def epf(rsi_data, closing_prices):
+async def get_dataframe(rsi_data, closing_prices):
     close_df = pd.DataFrame({k: {pd.to_datetime(date): float(v['close']) for date, v in val.items()} for k, val in closing_prices.items()}) 
     # Convertir datos de RSI a DataFrame 
     rsi_df = pd.DataFrame({k: {pd.to_datetime(date): float(v['RSI']) for date, v in val.items()} for k, val in rsi_data.items()}) 
@@ -461,39 +406,55 @@ async def epf(rsi_data, closing_prices):
     combined_df = pd.concat([close_df, rsi_df], axis=1) 
     # Ordenar por fecha 
     combined_df = combined_df.sort_index() 
-    print(combined_df, "EPF")
+    print(combined_df, "DATAFRAME")
 
     return combined_df
 
 
-async def tnotw(df, symbols):
-    initial_cash = 100000  # Capital inicial
+async def calculate_drawdown_profit(df, symbols):
+    initial_cash = 1000  # Capital inicial
     cash = initial_cash
     portfolio = {ticker: 0 for ticker in symbols}
     buy_prices = {ticker: None for ticker in symbols}
     portfolio_value = []
-
+    shares_buyed = []
+    var_A = 0
+    
     # Simular las operaciones
     for date, row in df.iterrows():
         close_prices = {ticker: row[f'{ticker}_Close'] for ticker in portfolio.keys()}
         rsis = {ticker: row[f'{ticker}_RSI'] for ticker in portfolio.keys()}
     
+        #ONCE A SHARE IS BUYED, WE CAN NOT BUY IT AGAIN UNTIL WE SELL IT?
+
+        
         # Señales de compra y venta
         for ticker in portfolio.keys():
             if rsis[ticker] < 25 and cash > 0:
-                shares_to_buy = (cash / len(portfolio.keys())) // close_prices[ticker]
-                if shares_to_buy > 0:
+                shares_to_buy = (cash / len(portfolio.keys())) // close_prices[ticker] #RETHINK THIS
+                print(f"Cash: {cash}, cantidad de tickers: {len(portfolio.keys())}, precio de cierre: {close_prices[ticker]}")
+                print(f"Cuantas acciones se van a comprar: {shares_to_buy}")
+                if shares_to_buy > 0 and ticker not in shares_buyed:
+                    var_A +=1
                     cash -= shares_to_buy * close_prices[ticker]
                     portfolio[ticker] += shares_to_buy
                     buy_prices[ticker] = close_prices[ticker]
-            elif rsis[ticker] > 70 and portfolio[ticker] > 0:
+                    shares_buyed.append(ticker)
+                    print(f"Compra {ticker}:{rsis[ticker]} el dia {date}")
+                else:
+                    print(f"No se pudo comprar {ticker} por cash insuficiente o ya esta comprado")
+            elif rsis[ticker] > 70 and portfolio[ticker] > 0 and ticker in shares_buyed:
                 cash += portfolio[ticker] * close_prices[ticker]
                 portfolio[ticker] = 0
                 buy_prices[ticker] = None
-            elif buy_prices[ticker] is not None and close_prices[ticker] < buy_prices[ticker] * 0.9:
+                shares_buyed.remove(ticker)
+                print(f"Venta {ticker}:{rsis[ticker]} el dia {date}")
+            elif buy_prices[ticker] is not None and close_prices[ticker] < buy_prices[ticker] * 0.9 and ticker in shares_buyed:
                 cash += portfolio[ticker] * close_prices[ticker]
                 portfolio[ticker] = 0
                 buy_prices[ticker] = None
+                shares_buyed.remove(ticker)
+                print(f"Venta {ticker} por perdida de 10%:{rsis[ticker]} el dia {date}")
 
         # Valor actual de la cartera en cada paso
         current_value = cash + sum(portfolio[ticker] * close_prices[ticker] for ticker in portfolio.keys())
@@ -511,8 +472,13 @@ async def tnotw(df, symbols):
 
     # Maximum drawdown
     max_drawdown = df['Drawdown Percent'].min()
-
+    # Rentabilidad del portafolio
+    final_portfolio_value = df['Portfolio Value'].iloc[-1]
+    profitability = (final_portfolio_value - initial_cash) / initial_cash * 100
+    
     print(f'Maximum Drawdown: {max_drawdown * 100:.2f}%')
+    print(f'Profitability: {profitability:.2f}%')
+    print(f'Media de alertas de compra: {var_A/60}')
 
 
 current_api_key_index = 0
@@ -530,7 +496,7 @@ async def backtest_handler(message: Message):
             **Text(
                 "Por favor, proporciona los ",
                 Bold("símbolos"),
-                " de las empresas.\nEjemplo: /backtest AAPL, GOOGL, MSFT, IBM, META o /backtest AAPL GOOGL MSFT IBM META",
+                " de las empresas.\nEjemplo: /backtest AAPL, GOOG, MSFT, IBM, META o /backtest AAPL GOOG MSFT IBM META",
             ).as_kwargs()
         )
         return
@@ -556,7 +522,7 @@ async def backtest_handler(message: Message):
         symb_msg = ", ".join(symbols)
         await message.answer(
             **Text(
-                f"🧪BackTest\nEmpresas analizadas: {symb_msg}",
+                f"🧪BackTest\nEmpresas analizadas: {symb_msg}🧪",
                 "\n🧮 Media de alertas mensuales: \n" "🔹 Compra: ",
                 Bold(result_avg_alerts["avg_below_25"]),
             ).as_kwargs()

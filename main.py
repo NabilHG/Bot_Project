@@ -3,6 +3,7 @@ import logging
 import sys
 import subprocess
 from bot import api, config
+from bot.handlers import uploadCompanies
 from bot.handlers import backtest, info
 from dotenv import load_dotenv
 load_dotenv()
@@ -17,7 +18,7 @@ async def daily_analysis():
         # Ejecutar la lógica de análisis y enviar alertas si es necesario
         await send_buy_sell_alerts()
 
-async def send_buy_sell_alerts():
+async def scurrent_api_key_indexend_buy_sell_alerts():
     # Lógica para enviar alertas de compra y venta
     # Por ejemplo:
     # await bot.send_message(chat_id, "¡Alerta de compra!")
@@ -30,7 +31,6 @@ async def start_analysis_scheduler():
         # Esperar 24 horas antes de ejecutar el análisis nuevamente
         await asyncio.sleep(24 * 60 * 60)
 '''
-
 async def keep_sudo_alive():
     while True:
         result = subprocess.run(['sudo', '-vn'], capture_output=True, text=True)
@@ -46,7 +46,7 @@ async def main() -> None:
     # Iniciar el análisis diario en un hilo separado
     analysis_task = asyncio.create_task(start_analysis_scheduler())
     '''
-
+    await uploadCompanies.get_data()
     
     dp.include_router(backtest.router)
     dp.include_router(info.router)
