@@ -39,7 +39,7 @@ async def fetch_rsi(session, symbol, current_api_key_index, message=None):
         "function": "RSI",
         "symbol": symbol,
         "interval": "daily",
-        "time_period": 10,
+        "time_period": 14,
         "series_type": "close",
         "apikey": api_key,
     }
@@ -273,6 +273,7 @@ async def calculate_monthly_avg_alerts(data):
 
 
 async def fetch_close_price(session, symbol, current_api_key_index, message=None):
+    print("ASD")
     api_key = config.get_next_api_key(current_api_key_index)
     print(api_key, "KEY")
     url = "https://www.alphavantage.co/query"
@@ -282,10 +283,13 @@ async def fetch_close_price(session, symbol, current_api_key_index, message=None
         "outputsize": "full",
         "apikey": api_key,
     }
-
+    print("1")
     async with session.get(url, params=params) as response:
+        print("2")
         if response.status == 200:
+            print("3")
             try:
+                print("4")
                 data = await response.json()
                 if not data:
                     await message.answer(
@@ -297,7 +301,7 @@ async def fetch_close_price(session, symbol, current_api_key_index, message=None
                         ).as_kwargs()
                     )
                     return None
-                # print(data, "ESTO ES DATA")
+                print(data, "ESTO ES DATA")
                 return data
             except json.JSONDecodeError as e:
                 print("Error decoding JSON:", e)

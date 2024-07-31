@@ -57,14 +57,15 @@ async def validate_info(responses, session, ticker, data, type, current_api, cur
 
             
 
-async def get_rsi(session, ticker, data, current_api_key_index):
+async def get_rsi(session, ticker, data, current_api_key_index, current_vpn_server_index):
     responses = await fetch_rsi(session, ticker, current_api_key_index)
+    print("hloa?")
     type = 'rsi'
     await validate_info(responses, session, ticker, data, type, current_api_key_index, current_vpn_server_index)
 
 async def get_close_price(session, ticker, data, current_api_key_index, current_vpn_server_index):
-    responses = await fetch_close_price(session, ticker, current_api_key_index, current_vpn_server_index)
-    # print(responses, "Info")
+    responses = await fetch_close_price(session, ticker, current_api_key_index)
+    print(responses, "uhhh?")
     type = 'close'
     await validate_info(responses, session, ticker, data, type, current_api_key_index, current_vpn_server_index)
 
@@ -87,7 +88,7 @@ async def get_date(year):
         raise ValueError(f"Year {year} is not valid. Valid years are: {', '.join(year_map.keys())}")
 
 
-async def trim_data(data, year):
+async def trim_data(data, year, type):
     # Convertir las fechas a objetos datetime para comparación
     start_date, end_date = await get_date(year)
 
@@ -95,13 +96,13 @@ async def trim_data(data, year):
     # end_date = datetime.strptime('2024-07-29', '%Y-%m-%d')
 
     # Filtrar los datos de "Time Series (Daily)" entre las fechas dadas
-    filtered_time_series = {date: values for date, values in data['Time Series (Daily)'].items()
+    filtered_time_series = {date: values for date, values in data[f'{type}'].items()
                             if start_date <= datetime.strptime(date, '%Y-%m-%d') <= end_date}
 
     # Crear el diccionario con "Meta Data" y los datos filtrados
     filtered_data = {
         'Meta Data': data['Meta Data'],
-        'Time Series (Daily)': filtered_time_series
+        f'{type}': filtered_time_series
     }
 
     return filtered_data
@@ -126,7 +127,9 @@ async def get_data():
         if not os.path.exists(f'{folder_path}/{year}/close_price'):
             os.makedirs(f'{folder_path}/{year}/close_price')
         print(matrix[year])
-        data = {}
+        data_rsi = {}
+        data_close_price = {}
+
         for ticker in matrix[year]:
             if not os.path.exists(f'{folder_path}/{year}/{ticker}.json'):
                 print(ticker)
@@ -136,15 +139,23 @@ async def get_data():
                 else:
                     print("SIII")
                 async with aiohttp.ClientSession() as session:
-                    # await get_rsi(session, ticker, data, current_api_key_index, current_vpn_server_index)
-                    await get_close_price(session, ticker, data, current_api_key_index, current_vpn_server_index)
-                    print(data, "here")
+                    await get_close_price(session, ticker, data_close_price, current_api_key_index, current_vpn_server_index)
+                    print(data_close_price, "here2")
+                data_to_save_close_price = await trim_data(data_close_price, year, 'Time Series (Daily)')
                 
-                data_to_save = await trim_data(data, year)
-                file_path = os.path.join(folder_path, year, f'{ticker}.json')
+                async with aiohttp.ClientSession() as session:
+                    await get_rsi(session, ticker, data_rsi, current_api_key_index, current_vpn_server_index)
+                    print(data_rsi, "here")
+                data_to_save_rsi = await trim_data(data_rsi, year, 'Technical Analysis: RSI')
+
+                file_path = os.path.join(folder_path, year, 'rsi', f'{ticker}.json')
                 with open(file_path, 'w') as json_file:
-                    json.dump(data_to_save, json_file, indent=4)
-                print(data_to_save, "STAY HARD")
+                    json.dump(data_to_save_rsi, json_file, indent=4)
+                
+                file_path = os.path.join(folder_path, year, 'close_price', f'{ticker}.json')
+                with open(file_path, 'w') as json_file:
+                    json.dump(data_to_save_close_price, json_file, indent=4)
+                print(data_to_save_close_price, "STAY HARD")
             else:
                 print(f"info ya creada de {ticker}")
 
