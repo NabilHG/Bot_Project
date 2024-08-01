@@ -16,12 +16,12 @@ from datetime import datetime
 router = Router()
 
 matrix = {
-    "2000": ["MSFT", "GE", "CSCO", "WMT", "XOM", "INTC", "C", "PFE", "NOKIA", "TM"],
-    "2005": ["XOM", "GE", "MSFT", "C", "BP", "RDSA", "TM" , "WMT", "IBM", "JNJ"],
-    "2010": ["XOM", "MSFT", "AAPL", "GE", "WMT", "BRK", "PG", "BAC", "JNJ", "WFC"],
-    "2015": ["AAPL", "GOOG", "XOM", "BRK", "MSFT", "WFC", "JNJ", "NVS", "WMT", "GE"],
-    "2020": ["AAPL", "MSFT", "AMZ", "GOOG", "META", "BRK", "TSMC", "ASML", "TSLA", "BABA"],
-    "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZ", "META", "BRK", "LLY", "AVGO", "TSM"],
+    "2000": ["MSFT", "GE", "CSCO", "WMT", "XOM", "INTC", "C", "PFE", "NOK", "TM"],
+    "2005": ["XOM", "GE", "MSFT", "C", "BP", "SHEL", "TM" , "WMT", "IBM", "JNJ"],
+    "2010": ["XOM", "MSFT", "AAPL", "GE", "WMT", "BRK.B", "PG", "BAC", "JNJ", "WFC"],
+    "2015": ["AAPL", "GOOG", "XOM", "BRK.B", "MSFT", "WFC", "JNJ", "NVS", "WMT", "GE"],
+    "2020": ["AAPL", "MSFT", "AMZN", "GOOG", "META", "BRK.B", "TSM", "ASML", "TSLA", "BABA"],
+    "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZN", "META", "BRK.B", "LLY", "AVGO", "TSM"],
 } 
 
 current_api_key_index = 0
@@ -50,8 +50,8 @@ async def validate_info(responses, session, ticker, data, type, current_api, cur
         
     else:
         print("NOT CONTAINS")
-        if await is_vpn_active():
-            await desactivate_vpn()
+        # if await is_vpn_active():
+        #     await desactivate_vpn()
         
         data.update(responses)    
 
@@ -59,13 +59,11 @@ async def validate_info(responses, session, ticker, data, type, current_api, cur
 
 async def get_rsi(session, ticker, data, current_api_key_index, current_vpn_server_index):
     responses = await fetch_rsi(session, ticker, current_api_key_index)
-    print("hloa?")
     type = 'rsi'
     await validate_info(responses, session, ticker, data, type, current_api_key_index, current_vpn_server_index)
 
 async def get_close_price(session, ticker, data, current_api_key_index, current_vpn_server_index):
     responses = await fetch_close_price(session, ticker, current_api_key_index)
-    print(responses, "uhhh?")
     type = 'close'
     await validate_info(responses, session, ticker, data, type, current_api_key_index, current_vpn_server_index)
 
@@ -131,33 +129,42 @@ async def get_data():
         data_close_price = {}
 
         for ticker in matrix[year]:
-            if not os.path.exists(f'{folder_path}/{year}/{ticker}.json'):
-                print(ticker)
-                if not await is_vpn_active():
-                    print("NOOO")
-                    await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
-                else:
-                    print("SIII")
+            print(ticker)
+            data_to_save_close_price = {}
+            data_to_save_rsi = {}
+            if not await is_vpn_active():
+                # print("NOOO")
+                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
+
+            if not os.path.exists(f'{folder_path}/{year}/close_price/{ticker}.json'):
                 async with aiohttp.ClientSession() as session:
                     await get_close_price(session, ticker, data_close_price, current_api_key_index, current_vpn_server_index)
-                    print(data_close_price, "here2")
+                    # print(data_close_price, "here2")
                 data_to_save_close_price = await trim_data(data_close_price, year, 'Time Series (Daily)')
-                
-                async with aiohttp.ClientSession() as session:
-                    await get_rsi(session, ticker, data_rsi, current_api_key_index, current_vpn_server_index)
-                    print(data_rsi, "here")
-                data_to_save_rsi = await trim_data(data_rsi, year, 'Technical Analysis: RSI')
-
-                file_path = os.path.join(folder_path, year, 'rsi', f'{ticker}.json')
-                with open(file_path, 'w') as json_file:
-                    json.dump(data_to_save_rsi, json_file, indent=4)
                 
                 file_path = os.path.join(folder_path, year, 'close_price', f'{ticker}.json')
                 with open(file_path, 'w') as json_file:
                     json.dump(data_to_save_close_price, json_file, indent=4)
-                print(data_to_save_close_price, "STAY HARD")
+            
             else:
                 print(f"info ya creada de {ticker}")
+
+            if not os.path.exists(f'{folder_path}/{year}/rsi/{ticker}.json'):
+                async with aiohttp.ClientSession() as session:
+                    await get_rsi(session, ticker, data_rsi, current_api_key_index, current_vpn_server_index)
+                    # print(data_rsi, "here")
+                data_to_save_rsi = await trim_data(data_rsi, year, 'Technical Analysis: RSI')
+            
+                file_path = os.path.join(folder_path, year, 'rsi', f'{ticker}.json')
+                with open(file_path, 'w') as json_file:
+                    json.dump(data_to_save_rsi, json_file, indent=4)
+
+            else:
+                print(f"info ya creada de {ticker}")
+
+            
+            # print(data_to_save_close_price, "STAY HARD")
+
 
 @router.message(Command(commands=["update"]))
 async def backtest_handler(message: Message):

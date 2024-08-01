@@ -32,8 +32,10 @@ async def load_dummy_data(folder_path):
 
 
 async def fetch_rsi(session, symbol, current_api_key_index, message=None):
+    if await is_vpn_active():
+        print("OKKKKKKKK")
     api_key = config.get_next_api_key(current_api_key_index)
-    print(api_key, "KEY")
+    print(api_key, "KEY9090")
     url = "https://www.alphavantage.co/query"
     params = {
         "function": "RSI",
@@ -273,9 +275,10 @@ async def calculate_monthly_avg_alerts(data):
 
 
 async def fetch_close_price(session, symbol, current_api_key_index, message=None):
-    print("ASD")
+    if await is_vpn_active():
+        print("kooooooo")
     api_key = config.get_next_api_key(current_api_key_index)
-    print(api_key, "KEY")
+    print(api_key, "KEY8080")
     url = "https://www.alphavantage.co/query"
     params = {
         "function": "TIME_SERIES_DAILY",
@@ -283,13 +286,9 @@ async def fetch_close_price(session, symbol, current_api_key_index, message=None
         "outputsize": "full",
         "apikey": api_key,
     }
-    print("1")
     async with session.get(url, params=params) as response:
-        print("2")
         if response.status == 200:
-            print("3")
             try:
-                print("4")
                 data = await response.json()
                 if not data:
                     await message.answer(
@@ -301,7 +300,7 @@ async def fetch_close_price(session, symbol, current_api_key_index, message=None
                         ).as_kwargs()
                     )
                     return None
-                print(data, "ESTO ES DATA")
+                # print(data, "ESTO ES DATA")
                 return data
             except json.JSONDecodeError as e:
                 print("Error decoding JSON:", e)
