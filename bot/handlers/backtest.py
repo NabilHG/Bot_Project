@@ -13,21 +13,29 @@ import json
 import subprocess
 import time
 import pandas as pd
-
+import math 
 
 router = Router()
 
 
-async def load_dummy_data(folder_path):
+async def load_data(base_path, subfolder_name):
     data_list = []
-    # print(folder_path)
-    for filename in os.listdir(folder_path):
-        if filename.endswith(".json"):
-            file_path = os.path.join(folder_path, filename)
-            with open(file_path, "r") as file:
-                data = json.load(file)
-                data_list.append(data)
-
+    # Recorrer todas las subcarpetas del segundo nivel
+    for year_folder in os.listdir(base_path):
+        year_folder_path = os.path.join(base_path, year_folder)
+        # Verificar si la carpeta del año es un directorio
+        if os.path.isdir(year_folder_path):
+            target_folder_path = os.path.join(year_folder_path, subfolder_name)
+            # Verificar si la carpeta deseada existe dentro de la carpeta del año
+            if os.path.isdir(target_folder_path):
+                # Cargar todos los archivos JSON dentro de la carpeta deseada
+                for filename in os.listdir(target_folder_path):
+                    if filename.endswith(".json"):
+                        file_path = os.path.join(target_folder_path, filename)
+                        with open(file_path, "r") as file:
+                            data = json.load(file)
+                            data_list.append(data)
+    
     return data_list
 
 
@@ -100,13 +108,13 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index, cur
     monthly_action_counts = {}  
 
     print(symbols)
-    if not await is_vpn_active():
-        print("NOOO")
-        await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
-    else:
-        print("SIII")
+    # if not await is_vpn_active():
+    #     print("NOOO")
+    #     await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
+    # else:
+    #     print("SIII")
 
-    async with aiohttp.ClientSession() as session:
+    # async with aiohttp.ClientSession() as session:
         # tasks = [
         #     fetch_rsi(
         #         session,
@@ -118,50 +126,49 @@ async def get_monthly_alerts_counts(symbols, message, current_api_key_index, cur
         # ]
         # responses = await asyncio.gather(*tasks)
 
-        responses = await load_dummy_data('/home/bot/Desktop/Bot_Project/bot/dummy_data_rsi')
-        substring = "rate limit is 25 requests per day"
-        if await contains_info(responses, substring):
-            print("CONTAINS")
-            if await is_vpn_active():
-                await desactivate_vpn()
+        # substring = "rate limit is 25 requests per day"
+        # if await contains_info(responses, substring):
+        #     print("CONTAINS")
+        #     if await is_vpn_active():
+        #         await desactivate_vpn()
             
-            # change api key and vpn server
-            current_api_key_index += 1
-            current_vpn_server_index += 1
+        #     # change api key and vpn server
+        #     current_api_key_index += 1
+        #     current_vpn_server_index += 1
 
-            await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))       
+        #     await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))       
             
-            #call recursively 
-            counts, nested_responses = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
-            # counts, nested_responses = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
-            #update
-            monthly_action_counts.update(counts)
-        else:
-            print("NOT CONTAINS")
-            if await is_vpn_active():
-                await desactivate_vpn()        
+        #     #call recursively 
+        #     counts, nested_responses = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
+        #     # counts, nested_responses = await get_monthly_alerts_counts(symbols, message, current_api_key_index, current_vpn_server_index)
+        #     #update
+        #     monthly_action_counts.update(counts)
+        # else:
+        #     print("NOT CONTAINS")
+        #     if await is_vpn_active():
+        #         await desactivate_vpn()        
 
           
 
-        #Responses has all the data about RSI
-        # print(responses)
+        #responses has all the data about RSI
+    responses = await load_data('data', 'rsi')
+    
+    has_none = any(filter(lambda x: x is None, responses))  # Si es True, no calcular el backtest
+    print(has_none, "has_none")
+    if not has_none:
+        print("Calculating backtest")
 
-        has_none = any(filter(lambda x: x is None, responses))  # Si es True, no calcular el backtest
-        print(has_none, "has_none")
-        if not has_none:
-            print("Calculating backtest")
-
-            for symbol, data in zip(symbols, responses):
-                if data and "Technical Analysis: RSI" in data:
-                    rsi_data = data["Technical Analysis: RSI"]
-                    for date, details in rsi_data.items():
-                        month = date.split("-")[1]
-                        if month not in monthly_action_counts:
-                            monthly_action_counts[month] = {
-                                "RSI below 25": 0,
-                            }
-                        if float(details["RSI"]) <= 25:
-                            monthly_action_counts[month]["RSI below 25"] += 1
+        for symbol, data in zip(symbols, responses):
+            if data and "Technical Analysis: RSI" in data:
+                rsi_data = data["Technical Analysis: RSI"]
+                for date, details in rsi_data.items():
+                    month = date.split("-")[1]
+                    if month not in monthly_action_counts:
+                        monthly_action_counts[month] = {
+                            "RSI below 25": 0,
+                        }
+                    if float(details["RSI"]) <= 25:
+                        monthly_action_counts[month]["RSI below 25"] += 1
 
     # print(monthly_action_counts, "HERE")
 
@@ -319,13 +326,13 @@ async def fetch_close_price(session, symbol, current_api_key_index, message=None
 async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api_key_index, current_vpn_server_index):
     maximum_drawdown = {}
     print(symbols)
-    if not await is_vpn_active():
-        print("NOOO")
-        await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
-    else:
-        print("SIII")
+    # if not await is_vpn_active():
+    #     print("NOOO")
+    #     await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
+    # else:
+    #     print("SIII")
 
-    async with aiohttp.ClientSession() as session:
+    # async with aiohttp.ClientSession() as session:
         # tasks = [
         #     fetch_close_price(
         #         session,
@@ -339,80 +346,103 @@ async def calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api
 
         # print(responses)
 
-        substring = "rate limit is 25 requests per day"
+        # substring = "rate limit is 25 requests per day"
          
-        responses = await load_dummy_data('/home/bot/Desktop/Bot_Project/bot/dummy_data_price') 
 
-        if await contains_info(responses, substring):
-            print("CONTAINS")
-            if await is_vpn_active():
-                await desactivate_vpn()
+        # if await contains_info(responses, substring):
+        #     print("CONTAINS")
+        #     if await is_vpn_active():
+        #         await desactivate_vpn()
             
-            # change api key and vpn server
-            current_api_key_index += 1
-            current_vpn_server_index += 1
-            # call recursively 
-            await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))        
-            result = await calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api_key_index, current_vpn_server_index)
-            if result:
-                maximum_drawdown.update(result)
-        else:
-            print("NOT CONTAINS")
-            if await is_vpn_active():
-                await desactivate_vpn()        
+        #     # change api key and vpn server
+        #     current_api_key_index += 1
+        #     current_vpn_server_index += 1
+        #     # call recursively 
+        #     await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))        
+        #     result = await calculate_maximum_drawdown(symbols, message, data_rsi_raw, current_api_key_index, current_vpn_server_index)
+        #     if result:
+        #         maximum_drawdown.update(result)
+        # else:
+        #     print("NOT CONTAINS")
+        #     if await is_vpn_active():
+        #         await desactivate_vpn()        
                             
         
+        #responses has all the data about close_price
+    responses = await load_data('data', 'close_price') 
 
-        #Responses has all the data about RSI
-        closing_prices = {}
-        for response in responses:
-            symbol = response["Meta Data"]["2. Symbol"]
-            if symbol not in closing_prices:
-                closing_prices[symbol] = {}
+    closing_prices = {}
+    for response in responses:
+        symbol = response["Meta Data"]["2. Symbol"]
+        if symbol not in closing_prices:
+            closing_prices[symbol] = {}
 
-            for date, prices in response["Time Series (Daily)"].items():
-                closing_prices[symbol][date] = {"close": prices["4. close"]}
+        for date, prices in response["Time Series (Daily)"].items():
+            closing_prices[symbol][date] = {"close": prices["4. close"]}
 
-        # print(closing_prices, "INTERESA")
-        # print(data_rsi_raw, "a")
-        # print(symbols, "A")
-        rsi_data = {}
-        # for data in data_rsi_raw:
-        #     for date, rsi in data["Technical Analysis: RSI"].items():
-        #         rsi_data[date] = rsi
+    # print(closing_prices, "INTERESA")
+    # print(data_rsi_raw, "a")
+    # print(symbols, "A")
+    rsi_data = {}
+    # for data in data_rsi_raw:
+    #     for date, rsi in data["Technical Analysis: RSI"].items():
+    #         rsi_data[date] = rsi
 
-        for data in data_rsi_raw:
-            symbol = data["Meta Data"]["1: Symbol"]
-            if symbol not in data_rsi_raw:
-                rsi_data[symbol] = {}
+    for data in data_rsi_raw:
+        symbol = data["Meta Data"]["1: Symbol"]
+        if symbol not in data_rsi_raw:
+            rsi_data[symbol] = {}
 
-            for date, rsi in data["Technical Analysis: RSI"].items():
-                rsi_data[symbol][date] = rsi
-        # print(rsi_data, "INTERESA 2")
-        
-        # df_data = await test_func(rsi_data, closing_prices, symbols)
-        # mdre = await test_calculate_drwadown(df_data)
-        df = await get_dataframe(rsi_data, closing_prices)
-
-        await calculate_drawdown_profit(df, symbols)
+        for date, rsi in data["Technical Analysis: RSI"].items():
+            rsi_data[symbol][date] = rsi
+    # print(rsi_data, "INTERESA 2")
+    
+    df = await get_dataframe(rsi_data, closing_prices)
+    await calculate_drawdown_profit(df, symbols)
 
     return maximum_drawdown
 
-async def get_dataframe(rsi_data, closing_prices):
-    close_df = pd.DataFrame({k: {pd.to_datetime(date): float(v['close']) for date, v in val.items()} for k, val in closing_prices.items()}) 
-    # Convertir datos de RSI a DataFrame 
-    rsi_df = pd.DataFrame({k: {pd.to_datetime(date): float(v['RSI']) for date, v in val.items()} for k, val in rsi_data.items()}) 
-    # Renombrar las columnas de los DataFrames para diferenciarlas 
-    close_df = close_df.rename(columns=lambda x: f"{x}_Close") 
-    rsi_df = rsi_df.rename(columns=lambda x: f"{x}_RSI") 
-    # Unir los DataFrames en uno solo 
-    combined_df = pd.concat([close_df, rsi_df], axis=1) 
-    # Ordenar por fecha 
-    combined_df = combined_df.sort_index() 
-    print(combined_df, "DATAFRAME")
+async def get_dataframe(rsi_data, close_data):
+    # with open('output.txt', 'w') as f:
+    #     print(rsi_data, file=f)
+    # with open('output2.txt', 'w') as f:
+    #     print(closing_prices, file=f)
+    # close_df = pd.DataFrame({k: {pd.to_datetime(date): float(v['close']) for date, v in val.items()} for k, val in closing_prices.items()}) 
+    # # Convertir datos de RSI a DataFrame 
+    # rsi_df = pd.DataFrame({k: {pd.to_datetime(date): float(v['RSI']) for date, v in val.items()} for k, val in rsi_data.items()}) 
+    # # Renombrar las columnas de los DataFrames para diferenciarlas 
+    # close_df = close_df.rename(columns=lambda x: f"{x}_Close") 
+    # rsi_df = rsi_df.rename(columns=lambda x: f"{x}_RSI") 
+    # # Unir los DataFrames en uno solo 
+    # combined_df = pd.concat([close_df, rsi_df], axis=1) 
+    # # Ordenar por fecha 
+    # combined_df = combined_df.sort_index() 
+    # print(combined_df, "DATAFRAME")
+    data_tuples = []
 
-    return combined_df
+    for empresa, fechas in rsi_data.items():
+        for fecha, valores in fechas.items():
+            rsi = float(valores['RSI'])
+            close = float(close_data[empresa][fecha]['close']) if fecha in close_data[empresa] else None
+            data_tuples.append((fecha, empresa, 'RSI', rsi))
+            data_tuples.append((fecha, empresa, 'Close', close))
 
+    # Crear un DataFrame a partir de las tuplas
+    df = pd.DataFrame(data_tuples, columns=['Fecha', 'Empresa', 'Tipo', 'Valor'])
+
+    # Convertir el DataFrame en uno con MultiIndex
+    df.set_index(['Fecha', 'Empresa', 'Tipo'], inplace=True)
+
+    df.index = df.index.set_levels(pd.to_datetime(df.index.levels[0]), level=0)    
+    df = df.unstack(level='Tipo')
+    df.sort_index(inplace=True)
+    df_clear = df.dropna()
+    # with open('output.txt', 'w') as f:
+    #     print(df_clear, file=f)
+    return df_clear
+
+
+#ONCE A SHARE IS BUYED, WE CAN NOT BUY IT AGAIN UNTIL WE SELL IT?
 
 async def calculate_drawdown_profit(df, symbols):
     initial_cash = 1000  # Capital inicial
@@ -424,61 +454,64 @@ async def calculate_drawdown_profit(df, symbols):
     var_A = 0
     
     # Simular las operaciones
-    for date, row in df.iterrows():
-        close_prices = {ticker: row[f'{ticker}_Close'] for ticker in portfolio.keys()}
-        rsis = {ticker: row[f'{ticker}_RSI'] for ticker in portfolio.keys()}
-    
-        #ONCE A SHARE IS BUYED, WE CAN NOT BUY IT AGAIN UNTIL WE SELL IT?
-
-        
+    for date, group in df.groupby(level='Fecha'):
+        close_prices = {ticker: group.loc[(date, ticker), ('Valor', 'Close')] for ticker in portfolio.keys() if (date, ticker) in group.index}
+        rsis = {ticker: group.loc[(date, ticker), ('Valor', 'RSI')] for ticker in portfolio.keys() if (date, ticker) in group.index}
+                
         # Señales de compra y venta
         for ticker in portfolio.keys():
-            if rsis[ticker] < 25 and cash > 0:
-                shares_to_buy = (cash / len(portfolio.keys())) // close_prices[ticker] #RETHINK THIS
-                print(f"Cash: {cash}, cantidad de tickers: {len(portfolio.keys())}, precio de cierre: {close_prices[ticker]}")
-                print(f"Cuantas acciones se van a comprar: {shares_to_buy}")
-                if shares_to_buy > 0 and ticker not in shares_buyed:
-                    var_A +=1
-                    cash -= shares_to_buy * close_prices[ticker]
-                    portfolio[ticker] += shares_to_buy
-                    buy_prices[ticker] = close_prices[ticker]
-                    shares_buyed.append(ticker)
-                    print(f"Compra {ticker}:{rsis[ticker]} el dia {date}")
-                else:
-                    print(f"No se pudo comprar {ticker} por cash insuficiente o ya esta comprado")
-            elif rsis[ticker] > 70 and portfolio[ticker] > 0 and ticker in shares_buyed:
-                cash += portfolio[ticker] * close_prices[ticker]
-                portfolio[ticker] = 0
-                buy_prices[ticker] = None
-                shares_buyed.remove(ticker)
-                print(f"Venta {ticker}:{rsis[ticker]} el dia {date}")
-            elif buy_prices[ticker] is not None and close_prices[ticker] < buy_prices[ticker] * 0.9 and ticker in shares_buyed:
-                cash += portfolio[ticker] * close_prices[ticker]
-                portfolio[ticker] = 0
-                buy_prices[ticker] = None
-                shares_buyed.remove(ticker)
-                print(f"Venta {ticker} por perdida de 10%:{rsis[ticker]} el dia {date}")
-
+            if ticker in close_prices and ticker in rsis:
+                if not math.isnan(rsis[ticker]) and not math.isnan(close_prices[ticker]):
+                    if rsis[ticker] < 25 and cash > 0:
+                        shares_to_buy = (cash / len(portfolio.keys())) // close_prices[ticker]
+                        if shares_to_buy > 0 and ticker not in shares_buyed:
+                            var_A +=1
+                            cash -= shares_to_buy * close_prices[ticker]
+                            portfolio[ticker] += shares_to_buy
+                            buy_prices[ticker] = close_prices[ticker]
+                            shares_buyed.append(ticker)
+                    elif rsis[ticker] > 70 and portfolio[ticker] > 0 and ticker in shares_buyed:
+                        cash += portfolio[ticker] * close_prices[ticker]
+                        portfolio[ticker] = 0
+                        buy_prices[ticker] = None
+                        shares_buyed.remove(ticker)
+                    elif buy_prices[ticker] is not None and close_prices[ticker] < buy_prices[ticker] * 0.9 and ticker in shares_buyed:
+                        cash += portfolio[ticker] * close_prices[ticker]
+                        portfolio[ticker] = 0
+                        buy_prices[ticker] = None
+                        shares_buyed.remove(ticker)
         # Valor actual de la cartera en cada paso
-        current_value = cash + sum(portfolio[ticker] * close_prices[ticker] for ticker in portfolio.keys())
+        current_value = cash + sum(portfolio[ticker] * close_prices[ticker] for ticker in portfolio.keys() if ticker in close_prices)
         portfolio_value.append(current_value)
 
-    # Crear un DataFrame con la curva de capital
-    df['Portfolio Value'] = portfolio_value
-    print(df['Portfolio Value'], "portfolio value")
-    max_drawdown_PANDAS = max(1 - df['Portfolio Value']/df['Portfolio Value'].rolling(window=len(df['Portfolio Value']), min_periods=0).max())
-    print(max_drawdown_PANDAS, "max_drawdown PANDAS")
-    # Calcular el maximum drawdown
-    df['Peak'] = df['Portfolio Value'].cummax()
-    df['Drawdown'] = df['Portfolio Value'] - df['Peak']
-    df['Drawdown Percent'] = df['Drawdown'] / df['Peak']
+    #No peta hasta aqui
+
+    # Crear un DataFrame con las fechas únicas y los valores de la cartera
+    dates = df.index.get_level_values('Fecha').unique()  # Obtener las fechas únicas
+    df_portfolio = pd.DataFrame({'Fecha': dates, 'Portfolio Value': portfolio_value})
+    df_portfolio.set_index('Fecha', inplace=True)
+
+    # Restablecer el índice 'Fecha' del DataFrame original (manteniendo 'Empresa' y 'Tipo' como niveles de índice)
+    df_reset = df.reset_index(level='Fecha')
+
+    # Añadir 'Portfolio Value' a 'df_reset' a través de un merge basado en la columna 'Fecha'
+    df_combined = pd.merge(df_reset, df_portfolio, on='Fecha', how='left')
+
+    # Si es necesario, reestablecemos el índice original
+    df_combined.set_index(['Fecha', 'Empresa', 'Tipo'], inplace=True)
+
+    # Calcular max drawdown y rentabilidad
+    df_combined['Peak'] = df_combined['Portfolio Value'].cummax()
+    df_combined['Drawdown'] = df_combined['Portfolio Value'] - df_combined['Peak']
+    df_combined['Drawdown Percent'] = df_combined['Drawdown'] / df_combined['Peak']
 
     # Maximum drawdown
-    max_drawdown = df['Drawdown Percent'].min()
+    max_drawdown = df_combined['Drawdown Percent'].min()
+
     # Rentabilidad del portafolio
-    final_portfolio_value = df['Portfolio Value'].iloc[-1]
+    final_portfolio_value = df_combined['Portfolio Value'].iloc[-1]
     profitability = (final_portfolio_value - initial_cash) / initial_cash * 100
-    
+
     print(f'Maximum Drawdown: {max_drawdown * 100:.2f}%')
     print(f'Profitability: {profitability:.2f}%')
     print(f'Media de alertas de compra: {var_A/60}')
@@ -494,20 +527,22 @@ async def backtest_handler(message: Message):
     args = message.text.split(maxsplit=1)
 
     # Check if arguments are provided
-    if len(args) < 2:
-        await message.answer(
-            **Text(
-                "Por favor, proporciona los ",
-                Bold("símbolos"),
-                " de las empresas.\nEjemplo: /backtest AAPL, GOOG, MSFT, IBM, META o /backtest AAPL GOOG MSFT IBM META",
-            ).as_kwargs()
-        )
-        return
+    # if len(args) < 2:
+    #     await message.answer(
+    #         **Text(
+    #             "Por favor, proporciona los ",
+    #             Bold("símbolos"),
+    #             " de las empresas.\nEjemplo: /backtest AAPL, GOOG, MSFT, IBM, META o /backtest AAPL GOOG MSFT IBM META",
+    #         ).as_kwargs()
+    #     )
+    #     return
     
     # Process the arguments to handle both comma and space-separated symbols
-    raw_symbols = args[1].replace(",", " ").split()
-    symbols = [symbol.strip().upper() for symbol in raw_symbols]
-
+    # raw_symbols = args[1].replace(",", " ").split()
+    # symbols = [symbol.strip().upper() for symbol in raw_symbols]
+    symbols = ['INTC', 'GOOG', 'AMZN', 'ASML', 'PFE', 'TSLA', 'XOM', 'PG', 'SHEL', 
+                'TM', 'JNJ', 'META', 'GE', 'TSM', 'C', 'BRK.B', 'CSCO', 'WFC', 
+                'AAPL', 'NOK', 'MSFT', 'BP', 'BABA', 'IBM', 'NVS', 'BAC', 'WMT']
     if not symbols:
         await message.answer(
             **Text("No se han proporcionado símbolos válidos.").as_kwargs()
