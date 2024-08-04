@@ -248,9 +248,9 @@ async def is_vpn_active():
         print(f'Error while checking VPN state: {ex}')
         return False
 
-async def calculate_month_diff():
+async def calculate_month_diff(begin_date):
 
-    ancient_date = datetime.strptime("1999-11-15", "%Y-%m-%d")
+    ancient_date = datetime.strptime(f"{begin_date}", "%Y-%m-%d")
 
     current_date = datetime.now()
 
@@ -269,7 +269,7 @@ async def calculate_monthly_avg_alerts(data):
             entry["RSI below 25"] for entry in data.values()
         )
 
-        total_months = await calculate_month_diff()
+        total_months = await calculate_month_diff('2000-01-03')
 
         average_rsi_below_25 = round(total_actions_rsi_below_25 / total_months, 2)
 
@@ -445,27 +445,29 @@ async def get_dataframe(rsi_data, close_data):
 #ONCE A SHARE IS BUYED, WE CAN NOT BUY IT AGAIN UNTIL WE SELL IT?
 
 async def calculate_drawdown_profit(df, symbols):
-    initial_cash = 1000  # Capital inicial
+    # Inicializar el DataFrame para almacenar la fecha y el valor del portafolio
+    df_portfolio_tracking = pd.DataFrame(columns=['Fecha', 'Portfolio Value'])
+
+    # Inicializar otras variables necesarias para la simulación
+    initial_cash = 1000
     cash = initial_cash
-    portfolio = {ticker: 0 for ticker in symbols}
-    buy_prices = {ticker: None for ticker in symbols}
-    portfolio_value = []
+    portfolio = {ticker: 0 for ticker in df.index.get_level_values('Empresa').unique()}
+    buy_prices = {ticker: None for ticker in portfolio.keys()}
     shares_buyed = []
-    var_A = 0
-    
+    buy_notification = 0
     # Simular las operaciones
     for date, group in df.groupby(level='Fecha'):
         close_prices = {ticker: group.loc[(date, ticker), ('Valor', 'Close')] for ticker in portfolio.keys() if (date, ticker) in group.index}
         rsis = {ticker: group.loc[(date, ticker), ('Valor', 'RSI')] for ticker in portfolio.keys() if (date, ticker) in group.index}
-                
+        
         # Señales de compra y venta
         for ticker in portfolio.keys():
             if ticker in close_prices and ticker in rsis:
                 if not math.isnan(rsis[ticker]) and not math.isnan(close_prices[ticker]):
                     if rsis[ticker] < 25 and cash > 0:
+                        buy_notification += 1
                         shares_to_buy = (cash / len(portfolio.keys())) // close_prices[ticker]
                         if shares_to_buy > 0 and ticker not in shares_buyed:
-                            var_A +=1
                             cash -= shares_to_buy * close_prices[ticker]
                             portfolio[ticker] += shares_to_buy
                             buy_prices[ticker] = close_prices[ticker]
@@ -480,41 +482,38 @@ async def calculate_drawdown_profit(df, symbols):
                         portfolio[ticker] = 0
                         buy_prices[ticker] = None
                         shares_buyed.remove(ticker)
+
         # Valor actual de la cartera en cada paso
         current_value = cash + sum(portfolio[ticker] * close_prices[ticker] for ticker in portfolio.keys() if ticker in close_prices)
-        portfolio_value.append(current_value)
+        
+        # Crear un DataFrame temporal con la fecha y el valor del portafolio
+        temp_df = pd.DataFrame({'Fecha': [date], 'Portfolio Value': [current_value]}).dropna(how='all', axis=1)
+        # temp_df_cleaned = temp_df.dropna(how='all', axis=1)
+        # Concatenar el DataFrame temporal al DataFrame de seguimiento
+        df_portfolio_tracking = pd.concat([df_portfolio_tracking, temp_df], ignore_index=True)
 
-    #No peta hasta aqui
-
-    # Crear un DataFrame con las fechas únicas y los valores de la cartera
-    dates = df.index.get_level_values('Fecha').unique()  # Obtener las fechas únicas
-    df_portfolio = pd.DataFrame({'Fecha': dates, 'Portfolio Value': portfolio_value})
-    df_portfolio.set_index('Fecha', inplace=True)
-
-    # Restablecer el índice 'Fecha' del DataFrame original (manteniendo 'Empresa' y 'Tipo' como niveles de índice)
-    df_reset = df.reset_index(level='Fecha')
-
-    # Añadir 'Portfolio Value' a 'df_reset' a través de un merge basado en la columna 'Fecha'
-    df_combined = pd.merge(df_reset, df_portfolio, on='Fecha', how='left')
-
-    # Si es necesario, reestablecemos el índice original
-    df_combined.set_index(['Fecha', 'Empresa', 'Tipo'], inplace=True)
+    # Finalmente, puedes visualizar el DataFrame o utilizarlo para cálculos adicionales
+    print(df_portfolio_tracking, "kek")
+    # with open('output.txt', 'w') as f:
+    #     print(df_portfolio_tracking, file=f)
 
     # Calcular max drawdown y rentabilidad
-    df_combined['Peak'] = df_combined['Portfolio Value'].cummax()
-    df_combined['Drawdown'] = df_combined['Portfolio Value'] - df_combined['Peak']
-    df_combined['Drawdown Percent'] = df_combined['Drawdown'] / df_combined['Peak']
+    df_portfolio_tracking['Peak'] = df_portfolio_tracking['Portfolio Value'].cummax()
+    df_portfolio_tracking['Drawdown'] = df_portfolio_tracking['Portfolio Value'] - df_portfolio_tracking['Peak']
+    df_portfolio_tracking['Drawdown Percent'] = df_portfolio_tracking['Drawdown'] / df_portfolio_tracking['Peak']
 
     # Maximum drawdown
-    max_drawdown = df_combined['Drawdown Percent'].min()
+    max_drawdown = df_portfolio_tracking['Drawdown Percent'].min()
 
     # Rentabilidad del portafolio
-    final_portfolio_value = df_combined['Portfolio Value'].iloc[-1]
+    final_portfolio_value = df_portfolio_tracking['Portfolio Value'].iloc[-1]
     profitability = (final_portfolio_value - initial_cash) / initial_cash * 100
 
     print(f'Maximum Drawdown: {max_drawdown * 100:.2f}%')
     print(f'Profitability: {profitability:.2f}%')
-    print(f'Media de alertas de compra: {var_A/60}')
+    total_months = await calculate_month_diff('2000-01-03')
+    print(f'Cantidad de alertas: {buy_notification}, meses totales: {total_months}, media: {buy_notification/total_months}')
+    # print(f'Media de alertas de compra: {var_A/60}')
 
 
 current_api_key_index = 0
