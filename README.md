@@ -90,3 +90,127 @@ Navegate to the correct path of the enviroment and run the activation script
 ```bash
 bot_VirtualEnv\Scripts\activate
 ```
+
+
+## Setting up debian machine
+
+### First of all add bot user to the sudoers group
+Edit the sudores file
+```bash
+sudo visudo
+```
+Put this line at the end of the file
+```bash
+bot ALL=(ALL:ALL) ALL
+```
+
+### Install VSCode and Git
+```bash
+sudo apt update
+sudo apt upgrade
+```
+#### VSCode
+Run this commands
+```bash
+sudo apt install software-properties-common apt-transport-https wget -y
+```
+```bash
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/packages.microsoft.gpg
+```
+```bash
+sudo sh -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list'
+```
+Install vscode
+```bash
+sudo apt update
+sudo apt install code
+```
+
+#### Git
+Install git
+```bash
+sudo apt update
+sudo apt install git -y
+```
+Set credentials
+```bash
+git config --global user.name "NabilHG"
+git config --global user.email "nabilhajjoune@gmail.com"
+```
+Verify credentials
+```bash
+git config --global --list
+```
+
+### Reboot!
+```bash
+sudo reboot now
+```
+
+### Install OpenVPN
+```bash
+sudo apt update
+sudo apt upgrade
+```
+Install openvpn
+```bash
+sudo apt install openvpn
+```
+
+#### Add /usr/sbin to the PATH permanently
+Edit ~/.bashrc file
+```bash
+nano ~/.bashrc
+```
+Add the next line at the end
+```bash
+export PATH=$PATH:/usr/sbin
+```
+
+### Allow bot user to execute openvpn and pkill without sudo
+Edit visudo file
+```bash
+sudo visudo
+```
+Add the next line at the end
+```bash
+bot ALL=(ALL) NOPASSWD: /usr/sbin/openvpn, /usr/bin/pkill
+```
+
+### Reboot!
+```bash
+sudo reboot now
+```
+
+### To start coding
+The following steps is to set up the enviroment to start coding
+
+#### Clone the repository
+```bash
+git clone https://github.com/NabilHG/Bot_Project.git 
+```
+Change directory into Bot_Project folder, the run the following command
+```bash
+sudo apt install python3.11-venv
+```
+Create the virtual enviroment
+```bash
+python3 -m venv myenv
+```
+Activate the virtual enviroment
+```bash
+source myenv/bin/activate
+```
+Run the followings commands to install all the necesary dependencies
+```bash
+pip install --upgrade pip setuptools
+```
+```bash
+pip install -r requirements.txt
+```
+
+Launch code
+```bash
+python3 main.py
+```
+
