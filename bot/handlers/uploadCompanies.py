@@ -5,12 +5,11 @@ import os
 import json
 import aiohttp
 from bot import config
-from .backtest import is_vpn_active
-from .backtest import activate_vpn
-from .backtest import desactivate_vpn
+from bot.vpn import VPNManager
 from datetime import datetime
 
 router = Router()
+vpn_manager = VPNManager()
 
 matrix = {
     "2000": ["MSFT", "GE", "CSCO", "WMT", "XOM", "INTC", "C", "PFE", "NOK", "TM"],
@@ -25,21 +24,8 @@ current_api_key_index = 0
 current_vpn_server_index = 0
 substring = "rate limit is 25 requests per day"
 
-async def contains_info(responses, substring):
-    if isinstance(responses, dict):
-        for key, value in responses.items():
-            if await contains_info(value, substring):
-                return True
-    elif isinstance(responses, list):
-        for item in responses:
-            if await contains_info(item, substring):
-                return True
-    elif isinstance(responses, str):
-        if substring in responses:
-            return True
-    return False
 async def fetch_close_price(session, symbol, current_api_key_index):
-    if await is_vpn_active():
+    if await vpn_manager.is_vpn_active():
         print("kooooooo")
     api_key = config.get_next_api_key(current_api_key_index)
     print(api_key, "KEY8080")
@@ -65,7 +51,7 @@ async def fetch_close_price(session, symbol, current_api_key_index):
             return None
 
 async def fetch_rsi(session, symbol, current_api_key_index, message=None):
-    if await is_vpn_active():
+    if await vpn_manager.is_vpn_active():
         print("OKKKKKKKK")
     api_key = config.get_next_api_key(current_api_key_index)
     print(api_key, "KEY9090")
@@ -96,16 +82,16 @@ async def fetch_rsi(session, symbol, current_api_key_index, message=None):
 
 async def validate_info(responses, session, ticker, data, type, current_api, current_vpn):
     result = {}
-    if await contains_info(responses, substring):
+    if await vpn_manager.contains_info(responses, substring):
         print("CONTAINS")
-        if await is_vpn_active():
-            await desactivate_vpn()
+        if await vpn_manager.is_vpn_active():
+            await vpn_manager.desactivate_vpn()
           
         # change api key and vpn server
         current_api =+ 1
         current_vpn =+ 1
         
-        await activate_vpn(config.get_next_vpn_server(current_vpn))
+        await vpn_manager.activate_vpn(config.get_next_vpn_server(current_vpn))
         
         #call recursively 
         if type == 'rsi':
@@ -185,8 +171,8 @@ async def get_data():
             print(ticker)
             data_to_save_close_price = {}
             data_to_save_rsi = {}
-            if not await is_vpn_active():
-                await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
+            if not await vpn_manager.is_vpn_active():
+                await vpn_manager.activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
 
             if not os.path.exists(f'{folder_path}/{year}/close_price/{ticker}.json'):
                 async with aiohttp.ClientSession() as session:

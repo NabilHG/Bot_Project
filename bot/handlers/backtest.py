@@ -38,90 +38,6 @@ async def load_data(base_path, subfolder_name):
 
     return data_list
 
-async def get_public_ip():
-    async with aiohttp.ClientSession() as session:
-        async with session.get("https://api.ipify.org") as response:
-            return await response.text()
-
-
-async def activate_vpn(config_path):
-    print(config_path)
-    original_ip = await get_public_ip()
-    print(original_ip, "IP1")
-
-    try:
-        cmd = f"sudo openvpn --config {config_path} --log /var/log/openvpn.log"
-        process = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-
-        while True:
-            if await is_vpn_active():
-                print(f"VPN activated, exiting while loop: {config_path}")
-                break
-            else:
-                await asyncio.sleep(1)
-
-        await asyncio.sleep(5)
-
-        vpn_ip = await get_public_ip()
-        print(vpn_ip, "IP2")
-
-        if original_ip == vpn_ip:
-            print("VPN IP and original IP are the same. Something went wrong.")
-        else:
-            print("VPN activated successfully and IP has changed.")
-
-    except subprocess.CalledProcessError as ex:
-        print(f"Error while activating VPN: {ex}")
-
-
-async def desactivate_vpn():
-    try:
-        cmd = "sudo pkill openvpn"
-
-        process = subprocess.Popen(
-            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-
-        while True:
-            if await is_vpn_active():
-                break
-            else:
-                await asyncio.sleep(1)
-        print("VPN desactivated")
-    except subprocess.CalledProcessError as ex:
-        print(f"Error while desactivating vpn: {ex}")
-
-
-async def is_vpn_active():
-    try:
-        result = await asyncio.create_subprocess_shell(
-            "ip link", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
-
-        stdout, stderr = await result.communicate()
-
-        stdout_decoded = stdout.decode()
-        stderr_decoded = stderr.decode()
-
-        print(f"stderr: {stderr_decoded}")
-        # print(f"stdout: {stdout_decoded}")
-
-        if any("tun" in line and "UP" in line for line in stdout_decoded.splitlines()):
-            print("VPN is active")
-            return True
-        else:
-            print("VPN is not active")
-            return False
-
-    except asyncio.CancelledError:
-        raise
-    except Exception as ex:
-        print(f"Error while checking VPN state: {ex}")
-        return False
-
-
 async def calculate_month_diff(begin_date):
 
     ancient_date = datetime.strptime(f"{begin_date}", "%Y-%m-%d")
@@ -359,7 +275,7 @@ async def backtest_handler(message: Message):
     a = await calculate_maximum_drawdown(
         symbols
     )
-    
+
     print(a, "AAAAAAA")
     # print(result_avg_alerts)
     # if result_avg_alerts:
