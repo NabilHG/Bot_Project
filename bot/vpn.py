@@ -2,6 +2,7 @@ import asyncio
 import aiohttp
 import subprocess
 
+
 class VPNManager:
     def __init__(self):
         self.session = aiohttp.ClientSession()
@@ -62,7 +63,9 @@ class VPNManager:
     async def is_vpn_active(self):
         try:
             result = await asyncio.create_subprocess_shell(
-                "ip link", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                "ip link",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
 
             stdout, stderr = await result.communicate()
@@ -73,7 +76,9 @@ class VPNManager:
             print(f"stderr: {stderr_decoded}")
             # print(f"stdout: {stdout_decoded}")
 
-            if any("tun" in line and "UP" in line for line in stdout_decoded.splitlines()):
+            if any(
+                "tun" in line and "UP" in line for line in stdout_decoded.splitlines()
+            ):
                 print("VPN is active")
                 return True
             else:

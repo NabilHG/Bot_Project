@@ -38,6 +38,7 @@ async def load_data(base_path, subfolder_name):
 
     return data_list
 
+
 async def calculate_month_diff(begin_date):
 
     ancient_date = datetime.strptime(f"{begin_date}", "%Y-%m-%d")
@@ -51,13 +52,11 @@ async def calculate_month_diff(begin_date):
     return total_months
 
 
-async def calculate_maximum_drawdown(
-    symbols
-):
+async def calculate_maximum_drawdown(symbols):
     maximum_drawdown = {}
     print(symbols)
     data_close_price_raw = await load_data("data", "close_price")
-    data_rsi_raw  = await load_data("data", "rsi")
+    data_rsi_raw = await load_data("data", "rsi")
 
     closing_prices = {}
     for response in data_close_price_raw:
@@ -237,8 +236,6 @@ async def simulation(df, symbols):
     print(f"Media de dias que se tiene una accion: {average_hold_duration}")
 
 
-
-
 @router.message(Command(commands=["backtest", "BACKTEST", "Backtest", "BackTest"]))
 async def backtest_handler(message: Message):
 
@@ -272,9 +269,7 @@ async def backtest_handler(message: Message):
         "WMT",
     ]
 
-    a = await calculate_maximum_drawdown(
-        symbols
-    )
+    a = await calculate_maximum_drawdown(symbols)
 
     print(a, "AAAAAAA")
     # print(result_avg_alerts)
@@ -289,4 +284,3 @@ async def backtest_handler(message: Message):
     #     )
 
     return
-

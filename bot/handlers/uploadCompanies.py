@@ -13,16 +13,39 @@ vpn_manager = VPNManager()
 
 matrix = {
     "2000": ["MSFT", "GE", "CSCO", "WMT", "XOM", "INTC", "C", "PFE", "NOK", "TM"],
-    "2005": ["XOM", "GE", "MSFT", "C", "BP", "SHEL", "TM" , "WMT", "IBM", "JNJ"],
+    "2005": ["XOM", "GE", "MSFT", "C", "BP", "SHEL", "TM", "WMT", "IBM", "JNJ"],
     "2010": ["XOM", "MSFT", "AAPL", "GE", "WMT", "BRK.B", "PG", "BAC", "JNJ", "WFC"],
     "2015": ["AAPL", "GOOG", "XOM", "BRK.B", "MSFT", "WFC", "JNJ", "NVS", "WMT", "GE"],
-    "2020": ["AAPL", "MSFT", "AMZN", "GOOG", "META", "BRK.B", "TSM", "ASML", "TSLA", "BABA"],
-    "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZN", "META", "BRK.B", "LLY", "AVGO", "TSM"],
-} 
+    "2020": [
+        "AAPL",
+        "MSFT",
+        "AMZN",
+        "GOOG",
+        "META",
+        "BRK.B",
+        "TSM",
+        "ASML",
+        "TSLA",
+        "BABA",
+    ],
+    "2025": [
+        "MSFT",
+        "AAPL",
+        "NVDA",
+        "GOOG",
+        "AMZN",
+        "META",
+        "BRK.B",
+        "LLY",
+        "AVGO",
+        "TSM",
+    ],
+}
 
 current_api_key_index = 0
 current_vpn_server_index = 0
 substring = "rate limit is 25 requests per day"
+
 
 async def fetch_close_price(session, symbol, current_api_key_index):
     if await vpn_manager.is_vpn_active():
@@ -49,6 +72,7 @@ async def fetch_close_price(session, symbol, current_api_key_index):
                 return None
         else:
             return None
+
 
 async def fetch_rsi(session, symbol, current_api_key_index, message=None):
     if await vpn_manager.is_vpn_active():
@@ -80,59 +104,86 @@ async def fetch_rsi(session, symbol, current_api_key_index, message=None):
             return None
 
 
-async def validate_info(responses, session, ticker, data, type, current_api, current_vpn):
+async def validate_info(
+    responses, session, ticker, data, type, current_api, current_vpn
+):
     result = {}
     if await vpn_manager.contains_info(responses, substring):
         print("CONTAINS")
         if await vpn_manager.is_vpn_active():
             await vpn_manager.desactivate_vpn()
-          
+
         # change api key and vpn server
-        current_api =+ 1
-        current_vpn =+ 1
-        
+        current_api = +1
+        current_vpn = +1
+
         await vpn_manager.activate_vpn(config.get_next_vpn_server(current_vpn))
-        
-        #call recursively 
-        if type == 'rsi':
+
+        # call recursively
+        if type == "rsi":
             result = await get_rsi(session, ticker, data, current_api, current_vpn)
-        elif type == 'close':
-            result = await get_close_price(session, ticker, data, current_api, current_vpn)
+        elif type == "close":
+            result = await get_close_price(
+                session, ticker, data, current_api, current_vpn
+            )
             print(result, "this")
-        
+
     else:
         print("NOT CONTAINS")
-        data.update(responses)    
+        data.update(responses)
 
-            
 
-async def get_rsi(session, ticker, data, current_api_key_index, current_vpn_server_index):
+async def get_rsi(
+    session, ticker, data, current_api_key_index, current_vpn_server_index
+):
     responses = await fetch_rsi(session, ticker, current_api_key_index)
-    type = 'rsi'
-    await validate_info(responses, session, ticker, data, type, current_api_key_index, current_vpn_server_index)
+    type = "rsi"
+    await validate_info(
+        responses,
+        session,
+        ticker,
+        data,
+        type,
+        current_api_key_index,
+        current_vpn_server_index,
+    )
 
-async def get_close_price(session, ticker, data, current_api_key_index, current_vpn_server_index):
+
+async def get_close_price(
+    session, ticker, data, current_api_key_index, current_vpn_server_index
+):
     responses = await fetch_close_price(session, ticker, current_api_key_index)
-    type = 'close'
-    await validate_info(responses, session, ticker, data, type, current_api_key_index, current_vpn_server_index)
+    type = "close"
+    await validate_info(
+        responses,
+        session,
+        ticker,
+        data,
+        type,
+        current_api_key_index,
+        current_vpn_server_index,
+    )
+
 
 async def get_date(year):
     year_map = {
-        '2000': ('2000', '2005'),
-        '2005': ('2005', '2010'),
-        '2010': ('2010', '2015'),
-        '2015': ('2015', '2020'),
-        '2020': ('2020', '2025'),
-        '2025': ('2025', '2030')
+        "2000": ("2000", "2005"),
+        "2005": ("2005", "2010"),
+        "2010": ("2010", "2015"),
+        "2015": ("2015", "2020"),
+        "2020": ("2020", "2025"),
+        "2025": ("2025", "2030"),
     }
-    
+
     if year in year_map:
         year1, year2 = year_map[year]
-        start_date = datetime.strptime(f'{year1}-01-03', '%Y-%m-%d')
-        end_date = datetime.strptime(f'{year2}-12-30', '%Y-%m-%d')
+        start_date = datetime.strptime(f"{year1}-01-03", "%Y-%m-%d")
+        end_date = datetime.strptime(f"{year2}-12-30", "%Y-%m-%d")
         return start_date, end_date
     else:
-        raise ValueError(f"Year {year} is not valid. Valid years are: {', '.join(year_map.keys())}")
+        raise ValueError(
+            f"Year {year} is not valid. Valid years are: {', '.join(year_map.keys())}"
+        )
 
 
 async def trim_data(data, year, type):
@@ -140,29 +191,30 @@ async def trim_data(data, year, type):
     start_date, end_date = await get_date(year)
 
     # Filtrar los datos de "Time Series (Daily)" entre las fechas dadas
-    filtered_time_series = {date: values for date, values in data[f'{type}'].items()
-                            if start_date <= datetime.strptime(date, '%Y-%m-%d') <= end_date}
+    filtered_time_series = {
+        date: values
+        for date, values in data[f"{type}"].items()
+        if start_date <= datetime.strptime(date, "%Y-%m-%d") <= end_date
+    }
 
     # Crear el diccionario con "Meta Data" y los datos filtrados
-    filtered_data = {
-        'Meta Data': data['Meta Data'],
-        f'{type}': filtered_time_series
-    }
+    filtered_data = {"Meta Data": data["Meta Data"], f"{type}": filtered_time_series}
 
     return filtered_data
 
+
 async def get_data():
-    folder_path = 'data'
+    folder_path = "data"
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
-    
+
     for year in matrix:
-        if not os.path.exists(f'{folder_path}/{year}'):
-            os.makedirs(f'{folder_path}/{year}')
-        if not os.path.exists(f'{folder_path}/{year}/rsi'):
-            os.makedirs(f'{folder_path}/{year}/rsi')
-        if not os.path.exists(f'{folder_path}/{year}/close_price'):
-            os.makedirs(f'{folder_path}/{year}/close_price')
+        if not os.path.exists(f"{folder_path}/{year}"):
+            os.makedirs(f"{folder_path}/{year}")
+        if not os.path.exists(f"{folder_path}/{year}/rsi"):
+            os.makedirs(f"{folder_path}/{year}/rsi")
+        if not os.path.exists(f"{folder_path}/{year}/close_price"):
+            os.makedirs(f"{folder_path}/{year}/close_price")
         print(matrix[year])
         data_rsi = {}
         data_close_price = {}
@@ -172,27 +224,46 @@ async def get_data():
             data_to_save_close_price = {}
             data_to_save_rsi = {}
             if not await vpn_manager.is_vpn_active():
-                await vpn_manager.activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
+                await vpn_manager.activate_vpn(
+                    config.get_next_vpn_server(current_vpn_server_index)
+                )
 
-            if not os.path.exists(f'{folder_path}/{year}/close_price/{ticker}.json'):
+            if not os.path.exists(f"{folder_path}/{year}/close_price/{ticker}.json"):
                 async with aiohttp.ClientSession() as session:
-                    await get_close_price(session, ticker, data_close_price, current_api_key_index, current_vpn_server_index)
-                data_to_save_close_price = await trim_data(data_close_price, year, 'Time Series (Daily)')
-                
-                file_path = os.path.join(folder_path, year, 'close_price', f'{ticker}.json')
-                with open(file_path, 'w') as json_file:
+                    await get_close_price(
+                        session,
+                        ticker,
+                        data_close_price,
+                        current_api_key_index,
+                        current_vpn_server_index,
+                    )
+                data_to_save_close_price = await trim_data(
+                    data_close_price, year, "Time Series (Daily)"
+                )
+
+                file_path = os.path.join(
+                    folder_path, year, "close_price", f"{ticker}.json"
+                )
+                with open(file_path, "w") as json_file:
                     json.dump(data_to_save_close_price, json_file, indent=4)
 
-            if not os.path.exists(f'{folder_path}/{year}/rsi/{ticker}.json'):
+            if not os.path.exists(f"{folder_path}/{year}/rsi/{ticker}.json"):
                 async with aiohttp.ClientSession() as session:
-                    await get_rsi(session, ticker, data_rsi, current_api_key_index, current_vpn_server_index)
+                    await get_rsi(
+                        session,
+                        ticker,
+                        data_rsi,
+                        current_api_key_index,
+                        current_vpn_server_index,
+                    )
                     # print(data_rsi, "here")
-                data_to_save_rsi = await trim_data(data_rsi, year, 'Technical Analysis: RSI')
-            
-                file_path = os.path.join(folder_path, year, 'rsi', f'{ticker}.json')
-                with open(file_path, 'w') as json_file:
+                data_to_save_rsi = await trim_data(
+                    data_rsi, year, "Technical Analysis: RSI"
+                )
+
+                file_path = os.path.join(folder_path, year, "rsi", f"{ticker}.json")
+                with open(file_path, "w") as json_file:
                     json.dump(data_to_save_rsi, json_file, indent=4)
-            
 
 
 @router.message(Command(commands=["update"]))

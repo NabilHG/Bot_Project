@@ -6,10 +6,11 @@ from bot import api, config
 from bot.handlers import uploadCompanies
 from bot.handlers import backtest, info
 from dotenv import load_dotenv
+
 load_dotenv()
 
 
-'''
+"""
 async def daily_analysis():
     # Lógica para realizar el análisis diario
     # Determina si se deben enviar alertas de compra o venta
@@ -30,29 +31,32 @@ async def start_analysis_scheduler():
         await daily_analysis()
         # Esperar 24 horas antes de ejecutar el análisis nuevamente
         await asyncio.sleep(24 * 60 * 60)
-'''
+"""
+
+
 async def keep_sudo_alive():
     while True:
-        result = subprocess.run(['sudo', '-vn'], capture_output=True, text=True)
-        if 'a password is required' in result.stderr:
+        result = subprocess.run(["sudo", "-vn"], capture_output=True, text=True)
+        if "a password is required" in result.stderr:
             print("Password required for sudo. Exiting keep_sudo_alive.")
             break
-        await asyncio.sleep(300)  
+        await asyncio.sleep(300)
+
 
 async def main() -> None:
     asyncio.create_task(keep_sudo_alive())
     bot, dp = await api.init_bot(config.TELEGRAM_BOT_TOKEN)
-    '''
+    """
     # Iniciar el análisis diario en un hilo separado
     analysis_task = asyncio.create_task(start_analysis_scheduler())
-    '''
+    """
     # await uploadCompanies.get_data()
-    
+
     dp.include_router(backtest.router)
     dp.include_router(info.router)
-    
+
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    
+
     try:
         await dp.start_polling(bot)
     finally:
