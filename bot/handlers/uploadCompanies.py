@@ -5,12 +5,9 @@ import os
 import json
 import aiohttp
 from bot import config
-from .backtest import fetch_rsi
-from .backtest import fetch_close_price
 from .backtest import is_vpn_active
 from .backtest import activate_vpn
 from .backtest import desactivate_vpn
-from .backtest import contains_info
 from datetime import datetime
 
 router = Router()
@@ -27,6 +24,75 @@ matrix = {
 current_api_key_index = 0
 current_vpn_server_index = 0
 substring = "rate limit is 25 requests per day"
+
+async def contains_info(responses, substring):
+    if isinstance(responses, dict):
+        for key, value in responses.items():
+            if await contains_info(value, substring):
+                return True
+    elif isinstance(responses, list):
+        for item in responses:
+            if await contains_info(item, substring):
+                return True
+    elif isinstance(responses, str):
+        if substring in responses:
+            return True
+    return False
+async def fetch_close_price(session, symbol, current_api_key_index):
+    if await is_vpn_active():
+        print("kooooooo")
+    api_key = config.get_next_api_key(current_api_key_index)
+    print(api_key, "KEY8080")
+    url = "https://www.alphavantage.co/query"
+    params = {
+        "function": "TIME_SERIES_DAILY",
+        "symbol": symbol,
+        "outputsize": "full",
+        "apikey": api_key,
+    }
+    async with session.get(url, params=params) as response:
+        if response.status == 200:
+            try:
+                data = await response.json()
+                if not data:
+                    return None
+                # print(data, "ESTO ES DATA")
+                return data
+            except json.JSONDecodeError as e:
+                print("Error decoding JSON:", e)
+                return None
+        else:
+            return None
+
+async def fetch_rsi(session, symbol, current_api_key_index, message=None):
+    if await is_vpn_active():
+        print("OKKKKKKKK")
+    api_key = config.get_next_api_key(current_api_key_index)
+    print(api_key, "KEY9090")
+    url = "https://www.alphavantage.co/query"
+    params = {
+        "function": "RSI",
+        "symbol": symbol,
+        "interval": "daily",
+        "time_period": 14,
+        "series_type": "close",
+        "apikey": api_key,
+    }
+
+    async with session.get(url, params=params) as response:
+        if response.status == 200:
+            try:
+                data = await response.json()
+                if not data:
+                    return None
+                # print(data, "ESTO ES DATA")
+                return data
+            except json.JSONDecodeError as e:
+                print("Error decoding JSON:", e)
+                return None
+        else:
+            return None
+
 
 async def validate_info(responses, session, ticker, data, type, current_api, current_vpn):
     result = {}
@@ -50,9 +116,6 @@ async def validate_info(responses, session, ticker, data, type, current_api, cur
         
     else:
         print("NOT CONTAINS")
-        # if await is_vpn_active():
-        #     await desactivate_vpn()
-        
         data.update(responses)    
 
             
@@ -90,9 +153,6 @@ async def trim_data(data, year, type):
     # Convertir las fechas a objetos datetime para comparación
     start_date, end_date = await get_date(year)
 
-    # start_date = datetime.strptime('2024-07-22', '%Y-%m-%d')
-    # end_date = datetime.strptime('2024-07-29', '%Y-%m-%d')
-
     # Filtrar los datos de "Time Series (Daily)" entre las fechas dadas
     filtered_time_series = {date: values for date, values in data[f'{type}'].items()
                             if start_date <= datetime.strptime(date, '%Y-%m-%d') <= end_date}
@@ -106,13 +166,6 @@ async def trim_data(data, year, type):
     return filtered_data
 
 async def get_data():
-    print("TEST UPLOAD COMPANIES")
-
-    '''TODO'''
-        #1 - See if the folder is created and contains info. If true, jump to the next year
-        #2 - Create the folder, call to fetch_rsi and fetch_close_price for each ticker and create
-        #    a json file for each one 
-        #3 - Save the info in the correct format with the headers included
     folder_path = 'data'
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
@@ -133,21 +186,16 @@ async def get_data():
             data_to_save_close_price = {}
             data_to_save_rsi = {}
             if not await is_vpn_active():
-                # print("NOOO")
                 await activate_vpn(config.get_next_vpn_server(current_vpn_server_index))
 
             if not os.path.exists(f'{folder_path}/{year}/close_price/{ticker}.json'):
                 async with aiohttp.ClientSession() as session:
                     await get_close_price(session, ticker, data_close_price, current_api_key_index, current_vpn_server_index)
-                    # print(data_close_price, "here2")
                 data_to_save_close_price = await trim_data(data_close_price, year, 'Time Series (Daily)')
                 
                 file_path = os.path.join(folder_path, year, 'close_price', f'{ticker}.json')
                 with open(file_path, 'w') as json_file:
                     json.dump(data_to_save_close_price, json_file, indent=4)
-            
-            else:
-                print(f"info ya creada de {ticker}")
 
             if not os.path.exists(f'{folder_path}/{year}/rsi/{ticker}.json'):
                 async with aiohttp.ClientSession() as session:
@@ -158,12 +206,7 @@ async def get_data():
                 file_path = os.path.join(folder_path, year, 'rsi', f'{ticker}.json')
                 with open(file_path, 'w') as json_file:
                     json.dump(data_to_save_rsi, json_file, indent=4)
-
-            else:
-                print(f"info ya creada de {ticker}")
-
             
-            # print(data_to_save_close_price, "STAY HARD")
 
 
 @router.message(Command(commands=["update"]))
