@@ -1,17 +1,11 @@
 from aiogram import Router
 from aiogram.types import Message
 from aiogram.filters import Command
-from aiogram.utils.formatting import Text, Bold
-from bot import config
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
-import aiohttp
-import asyncio
 import os
 import json
-import subprocess
-import time
 import pandas as pd
 import math
 

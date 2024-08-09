@@ -6,7 +6,9 @@ import json
 import aiohttp
 from bot import config
 from bot.vpn import VPNManager
-from datetime import datetime
+from datetime import datetime, timedelta
+import yfinance as yf
+import pandas as pd
 
 router = Router()
 vpn_manager = VPNManager()
@@ -16,30 +18,8 @@ matrix = {
     "2005": ["XOM", "GE", "MSFT", "C", "BP", "SHEL", "TM", "WMT", "IBM", "JNJ"],
     "2010": ["XOM", "MSFT", "AAPL", "GE", "WMT", "BRK.B", "PG", "BAC", "JNJ", "WFC"],
     "2015": ["AAPL", "GOOG", "XOM", "BRK.B", "MSFT", "WFC", "JNJ", "NVS", "WMT", "GE"],
-    "2020": [
-        "AAPL",
-        "MSFT",
-        "AMZN",
-        "GOOG",
-        "META",
-        "BRK.B",
-        "TSM",
-        "ASML",
-        "TSLA",
-        "BABA",
-    ],
-    "2025": [
-        "MSFT",
-        "AAPL",
-        "NVDA",
-        "GOOG",
-        "AMZN",
-        "META",
-        "BRK.B",
-        "LLY",
-        "AVGO",
-        "TSM",
-    ],
+    "2020": ["AAPL", "MSFT", "AMZN", "GOOG", "META", "BRK.B", "TSM", "ASML", "TSLA", "BABA",],
+    "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZN", "META", "BRK.B", "LLY", "AVGO", "TSM",],
 }
 
 current_api_key_index = 0
@@ -177,8 +157,8 @@ async def get_date(year):
 
     if year in year_map:
         year1, year2 = year_map[year]
-        start_date = datetime.strptime(f"{year1}-01-03", "%Y-%m-%d")
-        end_date = datetime.strptime(f"{year2}-12-30", "%Y-%m-%d")
+        start_date = datetime.strptime(f"{year1}-01-01", "%Y-%m-%d")
+        end_date = datetime.strptime(f"{year2}-12-31", "%Y-%m-%d")
         return start_date, end_date
     else:
         raise ValueError(
@@ -223,20 +203,26 @@ async def get_data():
             print(ticker)
             data_to_save_close_price = {}
             data_to_save_rsi = {}
-            if not await vpn_manager.is_vpn_active():
-                await vpn_manager.activate_vpn(
-                    config.get_next_vpn_server(current_vpn_server_index)
-                )
+            # if not await vpn_manager.is_vpn_active():
+            #     await vpn_manager.activate_vpn(
+            #         config.get_next_vpn_server(current_vpn_server_index)
+            #     )
 
             if not os.path.exists(f"{folder_path}/{year}/close_price/{ticker}.json"):
-                async with aiohttp.ClientSession() as session:
-                    await get_close_price(
-                        session,
-                        ticker,
-                        data_close_price,
-                        current_api_key_index,
-                        current_vpn_server_index,
-                    )
+                start_date, end_date = await get_date(year)
+                start_date = start_date - timedelta(days=13)
+                # Convertimos la nueva fecha a una cadena si es necesario
+                start_date = start_date.strftime("%Y-%m-%d")
+                end_date = end_date.strftime("%Y-%m-%d")
+
+                data_rsi = yf.download(f'{ticker}', start=start_date, end=end_date)
+                data['RSI'] = await calculate_rsi(data)
+
+                    # Eliminar filas con valores NaN que pueden aparecer al inicio
+                data = data.dropna()
+                with open('output.txt', 'w') as f:
+                    print(data[['Close', 'RSI']].to_string(), file=f)
+
                 data_to_save_close_price = await trim_data(
                     data_close_price, year, "Time Series (Daily)"
                 )
@@ -264,6 +250,49 @@ async def get_data():
                 file_path = os.path.join(folder_path, year, "rsi", f"{ticker}.json")
                 with open(file_path, "w") as json_file:
                     json.dump(data_to_save_rsi, json_file, indent=4)
+
+
+async def test():
+    year = "2015"
+    start_date, end_date = await get_date(f'{year}')
+    start_date = start_date - timedelta(days=30)
+    # Convertimos la nueva fecha a una cadena si es necesario
+    start_date = start_date.strftime("%Y-%m-%d")
+    end_date = end_date.strftime("%Y-%m-%d")
+
+    data_rsi = yf.download('AAPL', start=start_date, end=end_date)
+    # Calcular el RSI diario y agregarlo al DataFrame
+    data_rsi['RSI'] = await calculate_rsi(data_rsi)
+
+    # Eliminar filas con valores NaN que pueden aparecer al inicio
+    data_rsi = data_rsi.dropna()
+    # Convertir la cadena a un número entero
+    year = int(year) - 1
+    data_rsi = data_rsi[~data_rsi.index.year.isin([year])]
+    with open('output.txt', 'w') as f:
+        print(data_rsi[['Close', 'RSI']].to_string(), file=f)
+
+# Función para calcular el RSI
+async def calculate_rsi(data):
+    # Calcular la diferencia en el precio de cierre día a día
+    delta = data['Close'].diff()
+    
+    # Calcular las ganancias y pérdidas
+    ganancia = delta.where(delta > 0, 0)
+    perdida = -delta.where(delta < 0, 0)
+    
+    # Calcular las ganancias y pérdidas medias
+    avg_gain = ganancia.rolling(window=14, min_periods=14).mean()
+    avg_loss = perdida.rolling(window=14, min_periods=14).mean()
+    
+    # Calcular el RS (Relative Strength)
+    rs = avg_gain / avg_loss
+    
+    # Calcular el RSI
+    rsi = 100 - (100 / (1 + rs))
+    
+    return rsi
+
 
 
 @router.message(Command(commands=["update"]))

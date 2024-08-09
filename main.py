@@ -51,6 +51,7 @@ async def main() -> None:
     analysis_task = asyncio.create_task(start_analysis_scheduler())
     """
     # await uploadCompanies.get_data()
+    await uploadCompanies.test()
 
     dp.include_router(backtest.router)
     dp.include_router(info.router)
