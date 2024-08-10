@@ -50,8 +50,9 @@ async def main() -> None:
     # Iniciar el análisis diario en un hilo separado
     analysis_task = asyncio.create_task(start_analysis_scheduler())
     """
-    await uploadCompanies.get_data()
- 
+    # await uploadCompanies.get_data()
+    # await uploadCompanies.test()
+
 
     dp.include_router(backtest.router)
     dp.include_router(info.router)

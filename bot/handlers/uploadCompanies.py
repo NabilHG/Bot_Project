@@ -7,6 +7,7 @@ import aiohttp
 from bot import config
 from bot.vpn import VPNManager
 from datetime import datetime, timedelta
+from ta.momentum import RSIIndicator
 import yfinance as yf
 import pandas as pd
 import asyncio
@@ -205,8 +206,8 @@ async def get_data():
 
             data = yf.download(ticker, start=start_date, end=end_date)
             # Calcular el RSI diario y agregarlo al DataFrame
-            data['RSI'] = await calculate_rsi(data)
-
+            rsi = RSIIndicator(close=data['Close'], window=14)
+            data['RSI'] = rsi.rsi()
             # Eliminar filas con valores NaN que pueden aparecer al inicio
             data = data.dropna()
             # Convertir la cadena a un número entero
@@ -274,6 +275,20 @@ async def calculate_rsi(data):
     
     return rsi
 
+async def test():
+    # Define el ticker y el periodo
+    ticker = "AAPL"
+    periodo = "1y"  # Ejemplo: 1 año de datos
+
+    # Descargar datos históricos del ticker
+    datos = yf.download(ticker, period=periodo)
+
+    # Calcular el RSI
+    rsi = RSIIndicator(close=datos['Close'], window=14)  # Usualmente se usa una ventana de 14 días
+    datos['RSI'] = rsi.rsi()
+
+    # Mostrar las últimas filas del DataFrame con el RSI
+    print(datos.tail())
 
 
 @router.message(Command(commands=["update"]))

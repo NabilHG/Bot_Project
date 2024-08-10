@@ -34,7 +34,9 @@ Update
 ```bash
 pip install --upgrade pip setuptools
 ```
-
+```bash
+pip install -r requirements.txt
+```
 ## Dependencies
 The first time you use the virtual environment, you will need to install the aiogram dependencies, already inside requierements.txt
 ```bash

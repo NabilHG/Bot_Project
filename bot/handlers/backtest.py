@@ -46,7 +46,7 @@ async def calculate_month_diff(begin_date):
     return total_months
 
 
-async def calculate_maximum_drawdown(symbols):
+async def calculate_maximum_drawdown():
     maximum_drawdown = {}
     data_close_price_raw = await load_data("data", "close_price")
     data_rsi_raw = await load_data("data", "rsi")
@@ -71,7 +71,7 @@ async def calculate_maximum_drawdown(symbols):
             rsi_data[symbol][date] = rsi
 
     df = await get_dataframe(rsi_data, closing_prices)
-    await simulation(df, symbols)
+    await simulation(df)
 
     return maximum_drawdown
 
@@ -108,7 +108,7 @@ async def get_dataframe(rsi_data, close_data):
 # ONCE A SHARE IS BUYED, WE CAN NOT BUY IT AGAIN UNTIL WE SELL IT?
 
 
-async def simulation(df, symbols):
+async def simulation(df):
     # Inicializar el DataFrame para almacenar la fecha y el valor del portafolio
     df_portfolio_tracking = pd.DataFrame(columns=["Fecha", "Portfolio Value"])
 
@@ -142,14 +142,16 @@ async def simulation(df, symbols):
                 if not math.isnan(rsis[ticker]) and not math.isnan(
                     close_prices[ticker]
                 ):
-                    if rsis[ticker] <= 25 and cash >= close_prices[ticker]:
-                        if (
-                            portfolio[ticker] == 0
-                        ):  # Comprar si no hay acciones de este ticker en cartera
+                    if rsis[ticker] <= 25 and cash > 0:
+                        # Comprar si no hay acciones de este ticker en cartera
+                        if portfolio[ticker] == 0: 
+                            if cash >= close_prices[ticker]:
+                                cash -= close_prices[ticker]
+                            else:
+                                print(f'Fecha: {date}, ticker: {ticker}, close_price: {close_prices[ticker]}, rsi: {rsis[ticker]}, cash: {cash}')
+                                cash = 0
+                            
                             buy_notification += 1
-                            # Do some calculation to substract the correct amount of cash when the clo_price is greater than the current amount of cash
-                            cash -= close_prices[ticker]
-                            ###
                             portfolio[ticker] = 1  # Comprar una acción
                             buy_prices[ticker] = close_prices[ticker]
                             buy_dates[ticker] = date  # Registrar la fecha de compra
@@ -200,7 +202,7 @@ async def simulation(df, symbols):
         average_hold_duration = sum(hold_durations) / len(hold_durations)
 
     # Finalmente, puedes visualizar el DataFrame o utilizarlo para cálculos adicionales
-    print(df_portfolio_tracking, "kek")
+    print(df_portfolio_tracking)
     # with open('output.txt', 'w') as f:
     #     print(df_portfolio_tracking, file=f)
 
@@ -223,46 +225,14 @@ async def simulation(df, symbols):
     print(f"Maximum Drawdown: {max_drawdown * 100:.2f}%")
     print(f"Profitability: {profitability:.2f}%")
     total_months = await calculate_month_diff("2000-01-03")
-    print(
-        f"Cantidad de alertas: {buy_notification}, meses totales: {total_months}, media: {buy_notification/total_months}"
-    )
+    print(f"Cantidad de alertas: {buy_notification}, meses totales: {total_months}, media: {buy_notification/total_months}")
     print(f"Media de dias que se tiene una accion: {average_hold_duration}")
 
 
 @router.message(Command(commands=["backtest", "BACKTEST", "Backtest", "BackTest"]))
 async def backtest_handler(message: Message):
 
-    symbols = [
-        "INTC",
-        "GOOG",
-        "AMZN",
-        "ASML",
-        "PFE",
-        "TSLA",
-        "XOM",
-        "PG",
-        "SHEL",
-        "TM",
-        "JNJ",
-        "META",
-        "GE",
-        "TSM",
-        "C",
-        "BRK.B",
-        "CSCO",
-        "WFC",
-        "AAPL",
-        "NOK",
-        "MSFT",
-        "BP",
-        "BABA",
-        "IBM",
-        "NVS",
-        "BAC",
-        "WMT",
-    ]
-
-    a = await calculate_maximum_drawdown(symbols)
+    a = await calculate_maximum_drawdown()
 
     print(a, "AAAAAAA")
     # print(result_avg_alerts)
