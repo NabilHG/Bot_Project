@@ -48,27 +48,26 @@ async def calculate_month_diff(begin_date):
 
 async def calculate_maximum_drawdown(symbols):
     maximum_drawdown = {}
-    print(symbols)
     data_close_price_raw = await load_data("data", "close_price")
     data_rsi_raw = await load_data("data", "rsi")
 
     closing_prices = {}
     for response in data_close_price_raw:
-        symbol = response["Meta Data"]["2. Symbol"]
+        symbol = response["Symbol"]
         if symbol not in closing_prices:
             closing_prices[symbol] = {}
 
-        for date, prices in response["Time Series (Daily)"].items():
-            closing_prices[symbol][date] = {"close": prices["4. close"]}
+        for date, prices in response["CLOSE"].items():
+            closing_prices[symbol][date] = {"close": prices}
 
     rsi_data = {}
 
     for data in data_rsi_raw:
-        symbol = data["Meta Data"]["1: Symbol"]
+        symbol = data["Symbol"]
         if symbol not in data_rsi_raw:
             rsi_data[symbol] = {}
 
-        for date, rsi in data["Technical Analysis: RSI"].items():
+        for date, rsi in data["RSI"].items():
             rsi_data[symbol][date] = rsi
 
     df = await get_dataframe(rsi_data, closing_prices)
@@ -82,7 +81,7 @@ async def get_dataframe(rsi_data, close_data):
     data_tuples = []
     for empresa, fechas in rsi_data.items():
         for fecha, valores in fechas.items():
-            rsi = float(valores["RSI"])
+            rsi = float(valores)
             close = (
                 float(close_data[empresa][fecha]["close"])
                 if fecha in close_data[empresa]
@@ -143,7 +142,7 @@ async def simulation(df, symbols):
                 if not math.isnan(rsis[ticker]) and not math.isnan(
                     close_prices[ticker]
                 ):
-                    if rsis[ticker] <= 25 and cash >= 0:
+                    if rsis[ticker] <= 25 and cash >= close_prices[ticker]:
                         if (
                             portfolio[ticker] == 0
                         ):  # Comprar si no hay acciones de este ticker en cartera

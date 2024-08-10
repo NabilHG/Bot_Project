@@ -9,6 +9,7 @@ from bot.vpn import VPNManager
 from datetime import datetime, timedelta
 import yfinance as yf
 import pandas as pd
+import asyncio
 
 router = Router()
 vpn_manager = VPNManager()
@@ -16,14 +17,14 @@ vpn_manager = VPNManager()
 matrix = {
     "2000": ["MSFT", "GE", "CSCO", "WMT", "XOM", "INTC", "C", "PFE", "NOK", "TM"],
     "2005": ["XOM", "GE", "MSFT", "C", "BP", "SHEL", "TM", "WMT", "IBM", "JNJ"],
-    "2010": ["XOM", "MSFT", "AAPL", "GE", "WMT", "BRK.B", "PG", "BAC", "JNJ", "WFC"],
-    "2015": ["AAPL", "GOOG", "XOM", "BRK.B", "MSFT", "WFC", "JNJ", "NVS", "WMT", "GE"],
-    "2020": ["AAPL", "MSFT", "AMZN", "GOOG", "META", "BRK.B", "TSM", "ASML", "TSLA", "BABA",],
-    "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZN", "META", "BRK.B", "LLY", "AVGO", "TSM",],
+    "2010": ["XOM", "MSFT", "AAPL", "GE", "WMT", "BRK-B", "PG", "BAC", "JNJ", "WFC"],
+    "2015": ["AAPL", "GOOG", "XOM", "BRK-B", "MSFT", "WFC", "JNJ", "NVS", "WMT", "GE"],
+    "2020": ["AAPL", "MSFT", "AMZN", "GOOG", "META", "BRK-B", "TSM", "ASML", "TSLA", "BABA",],
+    # "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZN", "META", "BRK.B", "LLY", "AVGO", "TSM",],
 }
 
-current_api_key_index = 0
-current_vpn_server_index = 0
+# current_api_key_index = 0
+# current_vpn_server_index = 0
 substring = "rate limit is 25 requests per day"
 
 
@@ -147,12 +148,12 @@ async def get_close_price(
 
 async def get_date(year):
     year_map = {
-        "2000": ("2000", "2005"),
-        "2005": ("2005", "2010"),
-        "2010": ("2010", "2015"),
-        "2015": ("2015", "2020"),
-        "2020": ("2020", "2025"),
-        "2025": ("2025", "2030"),
+        "2000": ("2000", "2004"),
+        "2005": ("2005", "2009"),
+        "2010": ("2010", "2014"),
+        "2015": ("2015", "2019"),
+        "2020": ("2020", "2024"),
+        # "2025": ("2025", "2029"),
     }
 
     if year in year_map:
@@ -166,22 +167,17 @@ async def get_date(year):
         )
 
 
-async def trim_data(data, year, type):
-    # Convertir las fechas a objetos datetime para comparación
-    start_date, end_date = await get_date(year)
+async def trim_data(data, ticker):
+    data_rsi = {'Symbol': ticker, 'RSI': {}}
+    data_close_price = {'Symbol': ticker, 'CLOSE': {}}
 
-    # Filtrar los datos de "Time Series (Daily)" entre las fechas dadas
-    filtered_time_series = {
-        date: values
-        for date, values in data[f"{type}"].items()
-        if start_date <= datetime.strptime(date, "%Y-%m-%d") <= end_date
-    }
+    for date, values in data[['Close', 'RSI']].iterrows():
+        # print(f'Fecha: {date}')
+        date = date.strftime("%Y-%m-%d")
+        data_rsi["RSI"][date] = values['RSI']
+        data_close_price["CLOSE"][date] = values['Close']
 
-    # Crear el diccionario con "Meta Data" y los datos filtrados
-    filtered_data = {"Meta Data": data["Meta Data"], f"{type}": filtered_time_series}
-
-    return filtered_data
-
+    return data_rsi, data_close_price
 
 async def get_data():
     folder_path = "data"
@@ -201,76 +197,61 @@ async def get_data():
 
         for ticker in matrix[year]:
             print(ticker)
-            data_to_save_close_price = {}
-            data_to_save_rsi = {}
-            # if not await vpn_manager.is_vpn_active():
-            #     await vpn_manager.activate_vpn(
-            #         config.get_next_vpn_server(current_vpn_server_index)
-            #     )
+            start_date, end_date = await get_date(f'{year}')
+            start_date = start_date - timedelta(days=30)
+            # Convertimos la nueva fecha a una cadena si es necesario
+            start_date = start_date.strftime("%Y-%m-%d")
+            end_date = end_date.strftime("%Y-%m-%d")
+
+            data = yf.download(ticker, start=start_date, end=end_date)
+            # Calcular el RSI diario y agregarlo al DataFrame
+            data['RSI'] = await calculate_rsi(data)
+
+            # Eliminar filas con valores NaN que pueden aparecer al inicio
+            data = data.dropna()
+            # Convertir la cadena a un número entero
+            year = int(year) - 1
+            # Borramos los datos de los anteriores años
+            data = data[~data.index.year.isin([year])]
+            year = year + 1
+            year = str(year)
+            data_rsi, data_close_price = await trim_data(data, ticker)
 
             if not os.path.exists(f"{folder_path}/{year}/close_price/{ticker}.json"):
-                start_date, end_date = await get_date(year)
-                start_date = start_date - timedelta(days=13)
-                # Convertimos la nueva fecha a una cadena si es necesario
-                start_date = start_date.strftime("%Y-%m-%d")
-                end_date = end_date.strftime("%Y-%m-%d")
-
-                data_rsi = yf.download(f'{ticker}', start=start_date, end=end_date)
-                data['RSI'] = await calculate_rsi(data)
-
-                    # Eliminar filas con valores NaN que pueden aparecer al inicio
-                data = data.dropna()
-                with open('output.txt', 'w') as f:
-                    print(data[['Close', 'RSI']].to_string(), file=f)
-
-                data_to_save_close_price = await trim_data(
-                    data_close_price, year, "Time Series (Daily)"
-                )
-
-                file_path = os.path.join(
-                    folder_path, year, "close_price", f"{ticker}.json"
-                )
+                file_path = os.path.join(folder_path, year, "close_price", f"{ticker}.json")
                 with open(file_path, "w") as json_file:
-                    json.dump(data_to_save_close_price, json_file, indent=4)
+                    json.dump(data_close_price, json_file, indent=4)
 
             if not os.path.exists(f"{folder_path}/{year}/rsi/{ticker}.json"):
-                async with aiohttp.ClientSession() as session:
-                    await get_rsi(
-                        session,
-                        ticker,
-                        data_rsi,
-                        current_api_key_index,
-                        current_vpn_server_index,
-                    )
-                    # print(data_rsi, "here")
-                data_to_save_rsi = await trim_data(
-                    data_rsi, year, "Technical Analysis: RSI"
-                )
-
                 file_path = os.path.join(folder_path, year, "rsi", f"{ticker}.json")
                 with open(file_path, "w") as json_file:
-                    json.dump(data_to_save_rsi, json_file, indent=4)
+                    json.dump(data_rsi, json_file, indent=4)
 
+            await asyncio.sleep(2)  # Espera 2 segundos antes de pasar a la siguiente iteración
 
 async def test():
     year = "2015"
+    ticker = 'AAPL'
     start_date, end_date = await get_date(f'{year}')
     start_date = start_date - timedelta(days=30)
     # Convertimos la nueva fecha a una cadena si es necesario
     start_date = start_date.strftime("%Y-%m-%d")
     end_date = end_date.strftime("%Y-%m-%d")
 
-    data_rsi = yf.download('AAPL', start=start_date, end=end_date)
+    data = yf.download(ticker, start=start_date, end=end_date)
     # Calcular el RSI diario y agregarlo al DataFrame
-    data_rsi['RSI'] = await calculate_rsi(data_rsi)
+    data['RSI'] = await calculate_rsi(data)
 
     # Eliminar filas con valores NaN que pueden aparecer al inicio
-    data_rsi = data_rsi.dropna()
+    data = data.dropna()
     # Convertir la cadena a un número entero
     year = int(year) - 1
-    data_rsi = data_rsi[~data_rsi.index.year.isin([year])]
+    # Borramos los datos de los anteriores años
+    data = data[~data.index.year.isin([year])]
     with open('output.txt', 'w') as f:
-        print(data_rsi[['Close', 'RSI']].to_string(), file=f)
+        print(data[['Close', 'RSI']].to_string(), file=f)
+
+    await trim_data(data, ticker)
 
 # Función para calcular el RSI
 async def calculate_rsi(data):
