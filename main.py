@@ -3,7 +3,6 @@ import logging
 import sys
 import subprocess
 from bot import api, config
-from bot.handlers import uploadCompanies
 from bot.handlers import backtest, info
 from dotenv import load_dotenv
 
@@ -51,7 +50,6 @@ async def main() -> None:
     analysis_task = asyncio.create_task(start_analysis_scheduler())
     """
     # await uploadCompanies.get_data()
-    # await uploadCompanies.test()
 
 
     dp.include_router(backtest.router)
