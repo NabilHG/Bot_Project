@@ -122,6 +122,8 @@ async def simulation(df):
     }  # Registro de fecha de compra
     hold_durations = []  # Lista para almacenar las duraciones de las posiciones
     buy_notification = 0
+    buy_notification_2020 = 0
+    hold_durations_2020 = []  # Lista para almacenar las duraciones de las posiciones
 
     # Simular las operaciones
     for date, group in df.groupby(level="Fecha"):
@@ -145,6 +147,11 @@ async def simulation(df):
                     if rsis[ticker] <= 25 and cash > 0:
                         # Comprar si no hay acciones de este ticker en cartera
                         if portfolio[ticker] == 0: 
+                            
+                            if date.year == 2020 or date.year == 2021 or date.year == 2022 or date.year == 2023 or date.year == 2024:
+                                buy_notification_2020 += 1
+
+
                             if cash >= close_prices[ticker]:
                                 cash -= close_prices[ticker]
                             else:
@@ -156,12 +163,17 @@ async def simulation(df):
                             buy_prices[ticker] = close_prices[ticker]
                             buy_dates[ticker] = date  # Registrar la fecha de compra
                     elif rsis[ticker] > 70 and portfolio[ticker] > 0:
-                        cash += (
-                            portfolio[ticker] * close_prices[ticker]
-                        )  # Vender todas las acciones
+                        cash += portfolio[ticker] * close_prices[ticker] # Vender todas las acciones
                         portfolio[ticker] = 0
                         # Calcular duración de retención y añadir a la lista
                         hold_durations.append((date - buy_dates[ticker]).days)
+                        if date.year == 2020 or date.year == 2021 or date.year == 2022 or date.year == 2023 or date.year == 2024:
+                            if buy_dates[ticker] is not None and isinstance(buy_dates[ticker], pd.Timestamp):
+                                print(f'Fecha: {type(date)}, lo otro: {type(buy_dates[ticker])}')
+                                hold_durations_2020.append((date - buy_dates[ticker]).days)
+                            else:
+                                print(f'Fecha: {type(date)}, lo otro: {type(buy_dates[ticker])}')
+                                print(f'El valor de {buy_dates[ticker]} es None o no es un Timestamp válido.')
                         buy_prices[ticker] = None
                         buy_dates[ticker] = (
                             None  # Limpiar la fecha de compra registrada
@@ -170,16 +182,23 @@ async def simulation(df):
                         buy_prices[ticker] is not None
                         and close_prices[ticker] < buy_prices[ticker] * 0.9
                     ):
-                        cash += (
-                            portfolio[ticker] * close_prices[ticker]
-                        )  # Vender todas las acciones
+                        cash += portfolio[ticker] * close_prices[ticker] # Vender todas las acciones
                         portfolio[ticker] = 0
                         # Calcular duración de retención y añadir a la lista
                         hold_durations.append((date - buy_dates[ticker]).days)
+                        if date.year == 2020 or date.year == 2021 or date.year == 2022 or date.year == 2023 or date.year == 2024:
+                            if buy_dates[ticker] is not None and isinstance(buy_dates[ticker], pd.Timestamp):
+                                print(f'Fecha: {type(date)}, lo otro: {type(buy_dates[ticker])}')
+                                hold_durations_2020.append((date - buy_dates[ticker]).days)
+                            else:
+                                print(f'Fecha: {type(date)}, lo otro: {type(buy_dates[ticker])}')
+                                print(f'El valor de {buy_dates[ticker]} es None o no es un Timestamp válido.')
                         buy_prices[ticker] = None
                         buy_dates[ticker] = (
                             None  # Limpiar la fecha de compra registrada
                         )
+                        
+
 
         # Valor actual de la cartera en cada paso
         current_value = cash + sum(
@@ -200,6 +219,9 @@ async def simulation(df):
 
     if hold_durations:
         average_hold_duration = sum(hold_durations) / len(hold_durations)
+
+    if hold_durations_2020:
+        average_hold_duration_2020 = sum(hold_durations_2020) / len(hold_durations_2020)
 
     # Finalmente, puedes visualizar el DataFrame o utilizarlo para cálculos adicionales
     print(df_portfolio_tracking)
@@ -224,9 +246,12 @@ async def simulation(df):
 
     print(f"Maximum Drawdown: {max_drawdown * 100:.2f}%")
     print(f"Profitability: {profitability:.2f}%")
-    total_months = await calculate_month_diff("2000-01-03")
-    print(f"Cantidad de alertas: {buy_notification}, meses totales: {total_months}, media: {buy_notification/total_months}")
+    total_months = await calculate_month_diff("2000-01-01")
+    total_months_2020 = await calculate_month_diff("2020-01-01")
+    print(f"Cantidad de alertas: {buy_notification}, meses totales: {total_months}, media: {buy_notification/total_months}")        
+    print(f"Cantidad de alertas a partir del 2020: {buy_notification_2020}, meses totales: {total_months_2020}, media: {buy_notification_2020/total_months_2020}")
     print(f"Media de dias que se tiene una accion: {average_hold_duration}")
+    print(f"Media de dias que se tiene una accion a partir del 2020: {average_hold_duration_2020}")
 
 
 @router.message(Command(commands=["backtest", "BACKTEST", "Backtest", "BackTest"]))
