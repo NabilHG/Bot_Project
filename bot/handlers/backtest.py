@@ -4,6 +4,8 @@ from aiogram.filters import Command
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
+from aiogram.types import Message
+from aiogram.utils.formatting import Text, Bold 
 import os
 import json
 import pandas as pd
@@ -71,9 +73,9 @@ async def calculate_maximum_drawdown():
             rsi_data[symbol][date] = rsi
 
     df = await get_dataframe(rsi_data, closing_prices)
-    await simulation(df)
+    max_drawdown, profitability, average_hold_duration, avg_notification = await simulation(df)
 
-    return maximum_drawdown
+    return max_drawdown, profitability, average_hold_duration, avg_notification
 
 
 async def get_dataframe(rsi_data, close_data):
@@ -105,7 +107,6 @@ async def get_dataframe(rsi_data, close_data):
     return df_clear
 
 
-# ONCE A SHARE IS BUYED, WE CAN NOT BUY IT AGAIN UNTIL WE SELL IT?
 
 
 async def simulation(df):
@@ -122,8 +123,8 @@ async def simulation(df):
     }  # Registro de fecha de compra
     hold_durations = []  # Lista para almacenar las duraciones de las posiciones
     buy_notification = 0
-    buy_notification_2020 = 0
-    hold_durations_2020 = []  # Lista para almacenar las duraciones de las posiciones
+    total_percent = 0
+    cp_out = 0
 
     # Simular las operaciones
     for date, group in df.groupby(level="Fecha"):
@@ -147,58 +148,70 @@ async def simulation(df):
                     if rsis[ticker] <= 25 and cash > 0:
                         # Comprar si no hay acciones de este ticker en cartera
                         if portfolio[ticker] == 0: 
+                            print(f'Cash antes de comprar: {cash}')
+                            # Calcular el monto a invertir y las acciones fraccionarias a comprar
+                            amount_to_invest = initial_cash * 0.8
                             
-                            if date.year == 2020 or date.year == 2021 or date.year == 2022 or date.year == 2023 or date.year == 2024:
-                                buy_notification_2020 += 1
-
-
-                            if cash >= close_prices[ticker]:
-                                cash -= close_prices[ticker]
-                            else:
-                                print(f'Fecha: {date}, ticker: {ticker}, close_price: {close_prices[ticker]}, rsi: {rsis[ticker]}, cash: {cash}')
+                            if amount_to_invest >= cash:
+                                print(f'Cash: {cash} mas pequeño que cantidad a invertir: {amount_to_invest}')
+                                shares_to_buy = cash / close_prices[ticker]
                                 cash = 0
-                            
+                            else:
+                                print(f'Cash: {cash} mas grande que cantidad a invertir: {amount_to_invest}')
+                                shares_to_buy = amount_to_invest / close_prices[ticker]  
+                                cash -= amount_to_invest
+                            print(f'Ticker: {ticker}, precio de cierre: {close_prices[ticker]}, rsi: {rsis[ticker]}, fecha: {date}')
+                            print(f'Cantidad a invertir: {amount_to_invest}')
+                            print(f'Cantidad de acciones a comprar: {shares_to_buy}')
+                            # Realizar la compra fraccionaria
+                            portfolio[ticker] += shares_to_buy  # Comprar las acciones fraccionarias
                             buy_notification += 1
-                            portfolio[ticker] = 1  # Comprar una acción
                             buy_prices[ticker] = close_prices[ticker]
-                            buy_dates[ticker] = date  # Registrar la fecha de compra
+                            buy_dates[ticker] = date  # Registrar la fecha de la primera compra
+                            print(f'Cash despues de comprar: {cash}')
                     elif rsis[ticker] > 70 and portfolio[ticker] > 0:
+                        print(f'Venta con beneficios de ticker: {ticker}, precio: {close_prices[ticker]}, fecha: {date}')
+                        cp_out = close_prices[ticker]
+                        c = cp_out - buy_prices[ticker]
+                        percent = (c / buy_prices[ticker]) * 100
+                        print(f'Porcentaje de la operacion: {percent}')
+                        total_percent += percent
+                        print(f'Total percent: {total_percent}')
+                        
                         cash += portfolio[ticker] * close_prices[ticker] # Vender todas las acciones
                         portfolio[ticker] = 0
                         # Calcular duración de retención y añadir a la lista
                         hold_durations.append((date - buy_dates[ticker]).days)
-                        if date.year == 2020 or date.year == 2021 or date.year == 2022 or date.year == 2023 or date.year == 2024:
-                            if buy_dates[ticker] is not None and isinstance(buy_dates[ticker], pd.Timestamp):
-                                print(f'Fecha: {type(date)}, lo otro: {type(buy_dates[ticker])}')
-                                hold_durations_2020.append((date - buy_dates[ticker]).days)
-                            else:
-                                print(f'Fecha: {type(date)}, lo otro: {type(buy_dates[ticker])}')
-                                print(f'El valor de {buy_dates[ticker]} es None o no es un Timestamp válido.')
-                        buy_prices[ticker] = None
-                        buy_dates[ticker] = (
-                            None  # Limpiar la fecha de compra registrada
-                        )
-                    elif (
-                        buy_prices[ticker] is not None
-                        and close_prices[ticker] < buy_prices[ticker] * 0.9
-                    ):
-                        cash += portfolio[ticker] * close_prices[ticker] # Vender todas las acciones
-                        portfolio[ticker] = 0
-                        # Calcular duración de retención y añadir a la lista
-                        hold_durations.append((date - buy_dates[ticker]).days)
-                        if date.year == 2020 or date.year == 2021 or date.year == 2022 or date.year == 2023 or date.year == 2024:
-                            if buy_dates[ticker] is not None and isinstance(buy_dates[ticker], pd.Timestamp):
-                                print(f'Fecha: {type(date)}, lo otro: {type(buy_dates[ticker])}')
-                                hold_durations_2020.append((date - buy_dates[ticker]).days)
-                            else:
-                                print(f'Fecha: {type(date)}, lo otro: {type(buy_dates[ticker])}')
-                                print(f'El valor de {buy_dates[ticker]} es None o no es un Timestamp válido.')
+
                         buy_prices[ticker] = None
                         buy_dates[ticker] = (
                             None  # Limpiar la fecha de compra registrada
                         )
                         
 
+                    elif (
+                        buy_prices[ticker] is not None
+                        and close_prices[ticker] < buy_prices[ticker] * 0.9
+                    ):
+                        print(f'Venta con perdidas de ticker: {ticker}, precio: {close_prices[ticker]}, fecha: {date}')
+                        cp_out = close_prices[ticker]
+                        c = cp_out - buy_prices[ticker]
+                        percent = (c / buy_prices[ticker]) * 100
+                        print(f'Porcentaje de la operacion: {percent}')
+                        a = total_percent + percent
+                        print(f'Esto es A: {a}')
+                        total_percent = a
+                        print(f'Total percent: {total_percent}')
+
+                        cash += portfolio[ticker] * close_prices[ticker] # Vender todas las acciones
+                        portfolio[ticker] = 0
+                        # Calcular duración de retención y añadir a la lista
+                        hold_durations.append((date - buy_dates[ticker]).days)
+                        buy_prices[ticker] = None
+                        buy_dates[ticker] = (
+                            None  # Limpiar la fecha de compra registrada
+                        )
+                      
 
         # Valor actual de la cartera en cada paso
         current_value = cash + sum(
@@ -219,9 +232,6 @@ async def simulation(df):
 
     if hold_durations:
         average_hold_duration = sum(hold_durations) / len(hold_durations)
-
-    if hold_durations_2020:
-        average_hold_duration_2020 = sum(hold_durations_2020) / len(hold_durations_2020)
 
     # Finalmente, puedes visualizar el DataFrame o utilizarlo para cálculos adicionales
     print(df_portfolio_tracking)
@@ -247,28 +257,26 @@ async def simulation(df):
     print(f"Maximum Drawdown: {max_drawdown * 100:.2f}%")
     print(f"Profitability: {profitability:.2f}%")
     total_months = await calculate_month_diff("2000-01-01")
-    total_months_2020 = await calculate_month_diff("2020-01-01")
-    print(f"Cantidad de alertas: {buy_notification}, meses totales: {total_months}, media: {buy_notification/total_months}")        
-    print(f"Cantidad de alertas a partir del 2020: {buy_notification_2020}, meses totales: {total_months_2020}, media: {buy_notification_2020/total_months_2020}")
+    avg_notification = buy_notification / total_months
+    print(f"Cantidad de alertas: {buy_notification}, meses totales: {total_months}, media: {avg_notification}")        
     print(f"Media de dias que se tiene una accion: {average_hold_duration}")
-    print(f"Media de dias que se tiene una accion a partir del 2020: {average_hold_duration_2020}")
+    print(f'Porcetaje total de las operaciones: {total_percent}')
 
+    return max_drawdown, profitability, average_hold_duration, avg_notification
 
 @router.message(Command(commands=["backtest", "BACKTEST", "Backtest", "BackTest"]))
 async def backtest_handler(message: Message):
 
-    a = await calculate_maximum_drawdown()
+    max_drawdown, profitability, average_hold_duration, avg_notification = await calculate_maximum_drawdown()
 
-    print(a, "AAAAAAA")
-    # print(result_avg_alerts)
-    # if result_avg_alerts:
-    #     symb_msg = ", ".join(symbols)
-    #     await message.answer(
-    #         **Text(
-    #             f"🧪BackTest\nEmpresas analizadas: {symb_msg}🧪",
-    #             "\n🧮 Media de alertas mensuales: \n" "🔹 Compra: ",
-    #             Bold(result_avg_alerts["avg_below_25"]),
-    #         ).as_kwargs()
-    #     )
+    await message.answer(
+        **Text(
+            "🧪",Bold('BackTest'),"🧪",
+            f'\n🧮 Media de alertas mensuales: {avg_notification}', 
+            f'\n🔹 Media de dias que se mantiene una accion: {average_hold_duration}',
+            f'\nMáximo draw down:{max_drawdown}'
+            f'\n Rentabilidad: {profitability}'
+        ).as_kwargs()
+    )
 
     return
