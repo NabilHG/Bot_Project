@@ -5,7 +5,6 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from datetime import datetime
 from aiogram.types import Message
-from aiogram.utils.formatting import Text, Bold 
 import os
 import json
 import pandas as pd
@@ -48,7 +47,7 @@ async def calculate_month_diff(begin_date):
     return total_months
 
 
-async def calculate_maximum_drawdown():
+async def calculate_maximum_drawdown_profit():
     maximum_drawdown = {}
     data_close_price_raw = await load_data("data", "close_price")
     data_rsi_raw = await load_data("data", "rsi")
@@ -150,7 +149,7 @@ async def simulation(df):
                         if portfolio[ticker] == 0: 
                             print(f'Cash antes de comprar: {cash}')
                             # Calcular el monto a invertir y las acciones fraccionarias a comprar
-                            amount_to_invest = initial_cash * 0.8
+                            amount_to_invest = initial_cash * 0.7
                             
                             if amount_to_invest >= cash:
                                 print(f'Cash: {cash} mas pequeño que cantidad a invertir: {amount_to_invest}')
@@ -261,22 +260,20 @@ async def simulation(df):
     print(f"Cantidad de alertas: {buy_notification}, meses totales: {total_months}, media: {avg_notification}")        
     print(f"Media de dias que se tiene una accion: {average_hold_duration}")
     print(f'Porcetaje total de las operaciones: {total_percent}')
+    max_drawdown = round(max_drawdown * 100, 2)
+    profitability = round(profitability, 2)
+    avg_notification = round(avg_notification, 2)
+    average_hold_duration = round(average_hold_duration, 2)
+    return str(max_drawdown), str(profitability), str(average_hold_duration), str(avg_notification)
 
-    return max_drawdown, profitability, average_hold_duration, avg_notification
 
 @router.message(Command(commands=["backtest", "BACKTEST", "Backtest", "BackTest"]))
 async def backtest_handler(message: Message):
 
-    max_drawdown, profitability, average_hold_duration, avg_notification = await calculate_maximum_drawdown()
-
-    await message.answer(
-        **Text(
-            "🧪",Bold('BackTest'),"🧪",
-            f'\n🧮 Media de alertas mensuales: {avg_notification}', 
-            f'\n🔹 Media de dias que se mantiene una accion: {average_hold_duration}',
-            f'\nMáximo draw down:{max_drawdown}'
-            f'\n Rentabilidad: {profitability}'
-        ).as_kwargs()
-    )
-
+    max_drawdown, profitability, average_hold_duration, avg_notification = await calculate_maximum_drawdown_profit()
+    
+    msg = '🧪 BackTest 🧪\n\n' + f'🧮 Media de alertas mensuales: <b>{avg_notification}</b>\n' + f"🔹 Media de días que se mantiene una acción en cartera: <b>{average_hold_duration}</b>\n" + f'☠️ Maximum draw down: <b>{max_drawdown}%</b>\n' + f'💰 Rentabilidad: <b>{profitability}%</b>'
+    
+    await message.answer(str(msg), parse_mode='HTML')
+           
     return
