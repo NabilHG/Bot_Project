@@ -203,7 +203,7 @@ Activate the virtual enviroment
 ```bash
 source myenv/bin/activate
 ```
-Run the followings commands to install all the necesary dependencies
+Run the following commands to install all the necesary dependencies
 ```bash
 pip install --upgrade pip setuptools
 ```
@@ -215,4 +215,25 @@ Launch code
 ```bash
 python3 main.py
 ```
+
+## The Git object files have gone corrupt
+This can happen during machine crashes, etc.
+
+#### Try to save the changes as you can, just in case!
+
+### Execute the following commands
+This will first remove any empty object files that cause corruption of the repository as a whole.
+```bash
+find .git/objects/ -type f -empty -delete
+```
+Then fetch down the missing objects (as well as latest changes) from the remote repository.
+```bash
+git fetch -p
+```
+Then do a full object store check. Which, at this point, should succeed without any errors (there may be still some warnings though!)
+```bash
+git fsck --full
+```
+
+
 
