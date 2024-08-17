@@ -124,7 +124,6 @@ async def simulation(df):
     buy_notification = 0
     total_percent = 0
     cp_out = 0
-
     # Simular las operaciones
     for date, group in df.groupby(level="Fecha"):
         close_prices = {
@@ -149,7 +148,7 @@ async def simulation(df):
                         if portfolio[ticker] == 0: 
                             print(f'Cash antes de comprar: {cash}')
                             # Calcular el monto a invertir y las acciones fraccionarias a comprar
-                            amount_to_invest = initial_cash * 0.7
+                            amount_to_invest = initial_cash * 0.3
                             
                             if amount_to_invest >= cash:
                                 print(f'Cash: {cash} mas pequeño que cantidad a invertir: {amount_to_invest}')
@@ -168,7 +167,7 @@ async def simulation(df):
                             buy_prices[ticker] = close_prices[ticker]
                             buy_dates[ticker] = date  # Registrar la fecha de la primera compra
                             print(f'Cash despues de comprar: {cash}')
-                    elif rsis[ticker] > 70 and portfolio[ticker] > 0:
+                    elif rsis[ticker] >= 70 and portfolio[ticker] > 0:
                         print(f'Venta con beneficios de ticker: {ticker}, precio: {close_prices[ticker]}, fecha: {date}')
                         cp_out = close_prices[ticker]
                         c = cp_out - buy_prices[ticker]
@@ -252,7 +251,6 @@ async def simulation(df):
     # Rentabilidad del portafolio
     final_portfolio_value = df_portfolio_tracking["Portfolio Value"].iloc[-1]
     profitability = (final_portfolio_value - initial_cash) / initial_cash * 100
-
     print(f"Maximum Drawdown: {max_drawdown * 100:.2f}%")
     print(f"Profitability: {profitability:.2f}%")
     total_months = await calculate_month_diff("2000-01-01")

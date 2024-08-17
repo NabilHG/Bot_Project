@@ -2,7 +2,7 @@ import asyncio
 import logging
 import sys
 import subprocess
-from bot import api, config
+from bot import api, config, data_manager
 from bot.handlers import backtest, info
 from dotenv import load_dotenv
 
@@ -32,24 +32,19 @@ async def start_analysis_scheduler():
         await asyncio.sleep(24 * 60 * 60)
 """
 
-
-async def keep_sudo_alive():
+async def update_data_task():
     while True:
-        result = subprocess.run(["sudo", "-vn"], capture_output=True, text=True)
-        if "a password is required" in result.stderr:
-            print("Password required for sudo. Exiting keep_sudo_alive.")
-            break
-        await asyncio.sleep(300)
-
+        await data_manager.update_data()
+        await asyncio.sleep(5)
 
 async def main() -> None:
-    asyncio.create_task(keep_sudo_alive())
+    # asyncio.create_task(update_data_task())
     bot, dp = await api.init_bot(config.TELEGRAM_BOT_TOKEN)
     """
     # Iniciar el análisis diario en un hilo separado
     analysis_task = asyncio.create_task(start_analysis_scheduler())
     """
-    # await uploadCompanies.get_data()
+    # await data_manager.get_data()
 
 
     dp.include_router(backtest.router)
