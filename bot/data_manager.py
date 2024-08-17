@@ -6,12 +6,12 @@ import yfinance as yf
 import asyncio
 
 matrix = {
-    "2000": ["MSFT", "GE", "CSCO", "WMT", "XOM", "INTC", "C", "PFE", "NOK", "TM", "DTE", "ALCTL.IS", "HD", "ORCL", "MRK"],
+    "2000": ["MSFT", "GE", "CSCO", "WMT", "XOM", "INTC", "C", "PFE", "NOK", "TM", "DTE", "HD", "ORCL", "MRK"],
     "2005": ["XOM", "GE", "MSFT", "C", "BP", "SHEL", "TM", "WMT", "IBM", "JNJ", "COP", "INTC", "AIG", "PFE"],
     "2010": ["XOM", "MSFT", "AAPL", "GE", "WMT", "BRK-B", "PG", "BAC", "JNJ", "WFC", "GOOG", "KO", "CVX", "PFE", "CSCO"],
     "2015": ["AAPL", "GOOG", "XOM", "BRK-B", "MSFT", "WFC", "JNJ", "NVS", "WMT", "GE", "PG", "JPM", "CVX", "ORCL", "VZ"],
     "2020": ["AAPL", "MSFT", "AMZN", "GOOG", "META", "BRK-B", "TSM", "ASML", "TSLA", "BABA", "JPM", "V", "MA", "UNH", "HD"],
-    # "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZN", "META", "BRK.B", "LLY", "AVGO", "TSM", "NVO", "JPM"],
+    # "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZN", "META", "BRK-B", "LLY", "AVGO", "TSM", "NVO", "JPM"],
 }
 
 async def get_date(year):
@@ -37,14 +37,16 @@ async def get_date(year):
 async def trim_data(data, ticker):
     data_rsi = {'Symbol': ticker, 'RSI': {}}
     data_close_price = {'Symbol': ticker, 'CLOSE': {}}
+    data_ma200 = {'Symbol': ticker, 'MA200': {}}
 
-    for date, values in data[['Close', 'RSI']].iterrows():
+    for date, values in data[['Close', 'RSI', "MA200"]].iterrows():
         # print(f'Fecha: {date}')
         date = date.strftime("%Y-%m-%d")
         data_rsi["RSI"][date] = values['RSI']
         data_close_price["CLOSE"][date] = values['Close']
+        data_ma200['MA200'][date] = values['MA200']
 
-    return data_rsi, data_close_price
+    return data_rsi, data_close_price, data_ma200
 
 async def get_data():
     folder_path = "data"
@@ -58,6 +60,8 @@ async def get_data():
             os.makedirs(f"{folder_path}/{year}/rsi")
         if not os.path.exists(f"{folder_path}/{year}/close_price"):
             os.makedirs(f"{folder_path}/{year}/close_price")
+        if not os.path.exists(f"{folder_path}/{year}/ma200"):
+            os.makedirs(f"{folder_path}/{year}/ma200")
         print(matrix[year])
         data_rsi = {}
         data_close_price = {}
@@ -65,7 +69,7 @@ async def get_data():
         for ticker in matrix[year]:
             print(ticker)
             start_date, end_date = await get_date(f'{year}')
-            start_date = start_date - timedelta(days=30)
+            start_date = start_date - timedelta(days=730)
             # Convertimos la nueva fecha a una cadena si es necesario
             start_date = start_date.strftime("%Y-%m-%d")
             end_date = end_date.strftime("%Y-%m-%d")
@@ -74,15 +78,16 @@ async def get_data():
             # Calcular el RSI diario y agregarlo al DataFrame
             rsi = RSIIndicator(close=data['Close'], window=14)
             data['RSI'] = rsi.rsi()
+            data['MA200'] = data['Close'].rolling(window=200).mean()
             # Eliminar filas con valores NaN que pueden aparecer al inicio
             data = data.dropna()
             # Convertir la cadena a un número entero
-            year = int(year) - 1
+            # year = int(year) - 1
             # Borramos los datos de los anteriores años
-            data = data[~data.index.year.isin([year])]
-            year = year + 1
-            year = str(year)
-            data_rsi, data_close_price = await trim_data(data, ticker)
+            # data = data[~data.index.year.isin([year])]
+            # year = year + 1
+            # year = str(year)
+            data_rsi, data_close_price, data_ma200 = await trim_data(data, ticker)
 
             if not os.path.exists(f"{folder_path}/{year}/close_price/{ticker}.json"):
                 file_path = os.path.join(folder_path, year, "close_price", f"{ticker}.json")
@@ -94,7 +99,14 @@ async def get_data():
                 with open(file_path, "w") as json_file:
                     json.dump(data_rsi, json_file, indent=4)
 
+            if not os.path.exists(f"{folder_path}/{year}/ma200/{ticker}.json"):
+                file_path = os.path.join(folder_path, year, "ma200", f"{ticker}.json")
+                with open(file_path, "w") as json_file:
+                    json.dump(data_ma200, json_file, indent=4)
+            
             await asyncio.sleep(2)  # Espera 2 segundos antes de pasar a la siguiente iteración
+
+
 
 async def update_data():
     print("Here we're going to update data every day")

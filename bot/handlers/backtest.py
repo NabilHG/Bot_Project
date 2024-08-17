@@ -1,10 +1,8 @@
 from aiogram import Router
 from aiogram.types import Message
 from aiogram.filters import Command
-from datetime import datetime
+from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
-from datetime import datetime
-from aiogram.types import Message
 import os
 import json
 import pandas as pd
@@ -13,8 +11,17 @@ import math
 router = Router()
 
 
-async def load_data(base_path, subfolder_name):
+async def load_data(base_path, subfolder_name, type):
     data_list = []
+    # Definir los rangos de fechas por year_folder
+    date_ranges = {
+        "2000": ("2000-01-01", "2004-12-30"),
+        "2005": ("2005-01-01", "2009-12-30"),
+        "2010": ("2010-01-01", "2014-12-30"),
+        "2015": ("2015-01-01", "2019-12-30"),
+        "2020": ("2020-01-01", (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d"))  # Hasta ayer
+    }
+
     # Recorrer todas las subcarpetas del segundo nivel
     for year_folder in os.listdir(base_path):
         year_folder_path = os.path.join(base_path, year_folder)
@@ -23,13 +30,28 @@ async def load_data(base_path, subfolder_name):
             target_folder_path = os.path.join(year_folder_path, subfolder_name)
             # Verificar si la carpeta deseada existe dentro de la carpeta del año
             if os.path.isdir(target_folder_path):
-                # Cargar todos los archivos JSON dentro de la carpeta deseada
-                for filename in os.listdir(target_folder_path):
-                    if filename.endswith(".json"):
-                        file_path = os.path.join(target_folder_path, filename)
-                        with open(file_path, "r") as file:
-                            data = json.load(file)
-                            data_list.append(data)
+                # Obtener el rango de fechas para el year_folder actual
+                start_date, end_date = date_ranges.get(year_folder, (None, None))
+                if start_date and end_date:
+                    # Cargar todos los archivos JSON dentro de la carpeta deseada
+                    for filename in os.listdir(target_folder_path):
+                        if filename.endswith(".json"):
+                            file_path = os.path.join(target_folder_path, filename)
+                            with open(file_path, "r") as file:
+                                data = json.load(file)
+                                
+                                # Filtrar las fechas dentro del rango especificado
+                                filtered = {
+                                    date: price for date, price in data[type].items()
+                                    if start_date <= date <= end_date
+                                }
+
+                                # Si hay datos filtrados, agregar al array con el símbolo incluido
+                                if filtered:
+                                    data_list.append({
+                                        "Symbol": data["Symbol"],
+                                        type: filtered
+                                    })
 
     return data_list
 
@@ -48,9 +70,9 @@ async def calculate_month_diff(begin_date):
 
 
 async def calculate_maximum_drawdown_profit():
-    maximum_drawdown = {}
-    data_close_price_raw = await load_data("data", "close_price")
-    data_rsi_raw = await load_data("data", "rsi")
+    data_close_price_raw = await load_data("data", "close_price", "CLOSE")
+    data_rsi_raw = await load_data("data", "rsi", "RSI")
+    data_ma200_raw = await load_data("data", "ma200", "MA200")
 
     closing_prices = {}
     for response in data_close_price_raw:
@@ -71,13 +93,23 @@ async def calculate_maximum_drawdown_profit():
         for date, rsi in data["RSI"].items():
             rsi_data[symbol][date] = rsi
 
-    df = await get_dataframe(rsi_data, closing_prices)
+    ma200_data = {}
+
+    for data in data_ma200_raw:
+        symbol = data["Symbol"]
+        if symbol not in data_ma200_raw:
+            ma200_data[symbol] = {}
+
+        for date, ma200 in data["MA200"].items():
+            ma200_data[symbol][date] = ma200
+
+    df = await get_dataframe(rsi_data, closing_prices, ma200_data)
     max_drawdown, profitability, average_hold_duration, avg_notification = await simulation(df)
 
     return max_drawdown, profitability, average_hold_duration, avg_notification
 
 
-async def get_dataframe(rsi_data, close_data):
+async def get_dataframe(rsi_data, close_data, ma200_data):
 
     data_tuples = []
     for empresa, fechas in rsi_data.items():
@@ -88,8 +120,14 @@ async def get_dataframe(rsi_data, close_data):
                 if fecha in close_data[empresa]
                 else None
             )
+            ma200 = (
+                ma200_data[empresa][fecha]
+                if fecha in ma200_data[empresa]
+                else None
+            )
             data_tuples.append((fecha, empresa, "RSI", rsi))
             data_tuples.append((fecha, empresa, "Close", close))
+            data_tuples.append((fecha, empresa, "MA200", ma200))
 
     # Crear un DataFrame a partir de las tuplas
     df = pd.DataFrame(data_tuples, columns=["Fecha", "Empresa", "Tipo", "Valor"])
@@ -106,12 +144,9 @@ async def get_dataframe(rsi_data, close_data):
     return df_clear
 
 
-
-
 async def simulation(df):
     # Inicializar el DataFrame para almacenar la fecha y el valor del portafolio
     df_portfolio_tracking = pd.DataFrame(columns=["Fecha", "Portfolio Value"])
-
     # Inicializar otras variables necesarias para la simulación
     initial_cash = 1000
     cash = initial_cash
@@ -136,7 +171,11 @@ async def simulation(df):
             for ticker in portfolio.keys()
             if (date, ticker) in group.index
         }
-
+        ma200s = {
+            ticker: group.loc[(date, ticker), ("Valor", "MA200")]
+            for ticker in portfolio.keys()
+            if (date, ticker) in group.index
+        }
         # Señales de compra y venta
         for ticker in portfolio.keys():
             if ticker in close_prices and ticker in rsis:
@@ -149,7 +188,7 @@ async def simulation(df):
                             print(f'Cash antes de comprar: {cash}')
                             # Calcular el monto a invertir y las acciones fraccionarias a comprar
                             amount_to_invest = initial_cash * 0.3
-                            
+                          
                             if amount_to_invest >= cash:
                                 print(f'Cash: {cash} mas pequeño que cantidad a invertir: {amount_to_invest}')
                                 shares_to_buy = cash / close_prices[ticker]
@@ -175,18 +214,16 @@ async def simulation(df):
                         print(f'Porcentaje de la operacion: {percent}')
                         total_percent += percent
                         print(f'Total percent: {total_percent}')
-                        
+
                         cash += portfolio[ticker] * close_prices[ticker] # Vender todas las acciones
                         portfolio[ticker] = 0
                         # Calcular duración de retención y añadir a la lista
                         hold_durations.append((date - buy_dates[ticker]).days)
-
                         buy_prices[ticker] = None
                         buy_dates[ticker] = (
                             None  # Limpiar la fecha de compra registrada
                         )
-                        
-
+                      
                     elif (
                         buy_prices[ticker] is not None
                         and close_prices[ticker] < buy_prices[ticker] * 0.9
@@ -200,7 +237,7 @@ async def simulation(df):
                         print(f'Esto es A: {a}')
                         total_percent = a
                         print(f'Total percent: {total_percent}')
-
+                        
                         cash += portfolio[ticker] * close_prices[ticker] # Vender todas las acciones
                         portfolio[ticker] = 0
                         # Calcular duración de retención y añadir a la lista
@@ -209,15 +246,13 @@ async def simulation(df):
                         buy_dates[ticker] = (
                             None  # Limpiar la fecha de compra registrada
                         )
-                      
-
+                    
         # Valor actual de la cartera en cada paso
         current_value = cash + sum(
             portfolio[ticker] * close_prices[ticker]
             for ticker in portfolio.keys()
             if ticker in close_prices
         )
-
         # Crear un DataFrame temporal con la fecha y el valor del portafolio
         temp_df = pd.DataFrame(
             {"Fecha": [date], "Portfolio Value": [current_value]}
@@ -227,15 +262,12 @@ async def simulation(df):
         df_portfolio_tracking = pd.concat(
             [df_portfolio_tracking, temp_df], ignore_index=True
         )
-
     if hold_durations:
         average_hold_duration = sum(hold_durations) / len(hold_durations)
-
     # Finalmente, puedes visualizar el DataFrame o utilizarlo para cálculos adicionales
     print(df_portfolio_tracking)
     # with open('output.txt', 'w') as f:
     #     print(df_portfolio_tracking, file=f)
-
     # Calcular max drawdown y rentabilidad
     df_portfolio_tracking["Peak"] = df_portfolio_tracking["Portfolio Value"].cummax()
     df_portfolio_tracking["Drawdown"] = (
@@ -244,10 +276,8 @@ async def simulation(df):
     df_portfolio_tracking["Drawdown Percent"] = (
         df_portfolio_tracking["Drawdown"] / df_portfolio_tracking["Peak"]
     )
-
     # Maximum drawdown
     max_drawdown = df_portfolio_tracking["Drawdown Percent"].min()
-
     # Rentabilidad del portafolio
     final_portfolio_value = df_portfolio_tracking["Portfolio Value"].iloc[-1]
     profitability = (final_portfolio_value - initial_cash) / initial_cash * 100
@@ -262,6 +292,7 @@ async def simulation(df):
     profitability = round(profitability, 2)
     avg_notification = round(avg_notification, 2)
     average_hold_duration = round(average_hold_duration, 2)
+    
     return str(max_drawdown), str(profitability), str(average_hold_duration), str(avg_notification)
 
 
