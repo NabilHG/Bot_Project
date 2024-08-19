@@ -22,6 +22,15 @@ async def load_data(base_path, subfolder_name, type):
         "2020": ("2020-01-01", (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d"))  # Hasta ayer
     }
 
+    if type.startswith('MA'):
+        date_ranges = {
+        "2000": ("1999-09-01", "2004-12-30"),
+        "2005": ("2004-09-01", "2009-12-30"),
+        "2010": ("2009-09-01", "2014-12-30"),
+        "2015": ("2014-09-01", "2019-12-30"),
+        "2020": ("2019-09-01", (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d"))  # Hasta ayer
+        }
+    print(f'{type}: {date_ranges}')
     # Recorrer todas las subcarpetas del segundo nivel
     for year_folder in os.listdir(base_path):
         year_folder_path = os.path.join(base_path, year_folder)
@@ -72,7 +81,8 @@ async def calculate_month_diff(begin_date):
 async def calculate_maximum_drawdown_profit():
     data_close_price_raw = await load_data("data", "close_price", "CLOSE")
     data_rsi_raw = await load_data("data", "rsi", "RSI")
-    data_ma200_raw = await load_data("data", "ma200", "MA200")
+    data_ma50_raw = await load_data("data", "ma50", "MA50")
+    data_ma20_raw = await load_data("data", "ma20", "MA20")
 
     closing_prices = {}
     for response in data_close_price_raw:
@@ -93,24 +103,34 @@ async def calculate_maximum_drawdown_profit():
         for date, rsi in data["RSI"].items():
             rsi_data[symbol][date] = rsi
 
-    ma200_data = {}
+    ma50_data = {}
 
-    for data in data_ma200_raw:
+    for data in data_ma50_raw:
         symbol = data["Symbol"]
-        if symbol not in data_ma200_raw:
-            ma200_data[symbol] = {}
+        if symbol not in data_ma50_raw:
+            ma50_data[symbol] = {}
 
-        for date, ma200 in data["MA200"].items():
-            ma200_data[symbol][date] = ma200
+        for date, ma50 in data["MA50"].items():
+            ma50_data[symbol][date] = ma50
 
-    df = await get_dataframe(rsi_data, closing_prices, ma200_data)
-    max_drawdown, profitability, average_hold_duration, avg_notification = await simulation(df)
+    ma20_data = {}
+
+    for data in data_ma20_raw:
+        symbol = data["Symbol"]
+        if symbol not in data_ma20_raw:
+            ma20_data[symbol] = {}
+
+        for date, ma20 in data["MA20"].items():
+            ma20_data[symbol][date] = ma20
+
+    df_rsi_close, df_ma50, df_ma20 = await get_dataframe(rsi_data, closing_prices, ma50_data, ma20_data)
+    max_drawdown, profitability, average_hold_duration, avg_notification = await simulation(df_rsi_close, df_ma50, df_ma20)
 
     return max_drawdown, profitability, average_hold_duration, avg_notification
 
+async def get_dataframe(rsi_data, close_data, ma50_data, ma20_data):
 
-async def get_dataframe(rsi_data, close_data, ma200_data):
-
+    # Crear un DataFrame para RSI y Close
     data_tuples = []
     for empresa, fechas in rsi_data.items():
         for fecha, valores in fechas.items():
@@ -120,31 +140,62 @@ async def get_dataframe(rsi_data, close_data, ma200_data):
                 if fecha in close_data[empresa]
                 else None
             )
-            ma200 = (
-                ma200_data[empresa][fecha]
-                if fecha in ma200_data[empresa]
-                else None
-            )
             data_tuples.append((fecha, empresa, "RSI", rsi))
             data_tuples.append((fecha, empresa, "Close", close))
-            data_tuples.append((fecha, empresa, "MA200", ma200))
 
-    # Crear un DataFrame a partir de las tuplas
-    df = pd.DataFrame(data_tuples, columns=["Fecha", "Empresa", "Tipo", "Valor"])
+    df_rsi_close = pd.DataFrame(data_tuples, columns=["Fecha", "Empresa", "Tipo", "Valor"])
+    df_rsi_close.set_index(["Fecha", "Empresa", "Tipo"], inplace=True)
+    df_rsi_close.index = df_rsi_close.index.set_levels(pd.to_datetime(df_rsi_close.index.levels[0]), level=0)
+    df_rsi_close = df_rsi_close.unstack(level="Tipo")
+    df_rsi_close.sort_index(inplace=True)
 
-    # Convertir el DataFrame en uno con MultiIndex
-    df.set_index(["Fecha", "Empresa", "Tipo"], inplace=True)
+    # Crear un DataFrame separado para MA50
+    ma50_tuples = []
+    for empresa, fechas in ma50_data.items():
+        for fecha, valor in fechas.items():
+            ma50_tuples.append((fecha, empresa, valor))
 
-    df.index = df.index.set_levels(pd.to_datetime(df.index.levels[0]), level=0)
-    df = df.unstack(level="Tipo")
-    df.sort_index(inplace=True)
-    df_clear = df.dropna()
-    # with open('output.txt', 'w') as f:
-    #     print(df_clear, file=f)
-    return df_clear
+    df_ma50 = pd.DataFrame(ma50_tuples, columns=["Fecha", "Empresa", "MA50"])
+    df_ma50.set_index(["Fecha", "Empresa"], inplace=True)
+    df_ma50.index = df_ma50.index.set_levels(pd.to_datetime(df_ma50.index.levels[0]), level=0)
+    df_ma50.sort_index(inplace=True)
+
+    # Crear un DataFrame separado para MA20
+    ma20_tuples = []
+    for empresa, fechas in ma20_data.items():
+        for fecha, valor in fechas.items():
+            ma20_tuples.append((fecha, empresa, valor))
+
+    df_ma20 = pd.DataFrame(ma20_tuples, columns=["Fecha", "Empresa", "MA20"])
+    df_ma20.set_index(["Fecha", "Empresa"], inplace=True)
+    df_ma20.index = df_ma20.index.set_levels(pd.to_datetime(df_ma20.index.levels[0]), level=0)
+    df_ma20.sort_index(inplace=True)
 
 
-async def simulation(df):
+    # Opcional: Eliminar filas donde todos los valores sean NaN en df_rsi_close
+    df_rsi_close_clean = df_rsi_close.dropna(how='all')
+
+    return df_rsi_close_clean, df_ma50, df_ma20
+
+async def is_sma_trending(ma_short_series, ma_long_series, current_date):
+    past_date_short = current_date - pd.Timedelta(days=20)  # SMA corta
+    past_date_long = current_date - pd.Timedelta(days=50)   # SMA larga
+    
+    while past_date_short not in ma_short_series.index:
+        past_date_short -= pd.Timedelta(days=1)
+    
+    while past_date_long not in ma_long_series.index:
+        past_date_long -= pd.Timedelta(days=1)
+    
+    ma_short_current = ma_short_series.loc[current_date]
+    ma_short_past = ma_short_series.loc[past_date_short]
+    ma_long_current = ma_long_series.loc[current_date]
+    ma_long_past = ma_long_series.loc[past_date_long]
+    
+    # Condición de tendencia alcista: SMA corta debe estar comenzando a subir y SMA corta debe estar a punto de cruzar SMA larga o ya cruzando
+    return ma_short_current < ma_short_past and ma_short_current < ma_long_current
+
+async def simulation(df, df_ma50, df_ma20):
     # Inicializar el DataFrame para almacenar la fecha y el valor del portafolio
     df_portfolio_tracking = pd.DataFrame(columns=["Fecha", "Portfolio Value"])
     # Inicializar otras variables necesarias para la simulación
@@ -159,6 +210,7 @@ async def simulation(df):
     buy_notification = 0
     total_percent = 0
     cp_out = 0
+
     # Simular las operaciones
     for date, group in df.groupby(level="Fecha"):
         close_prices = {
@@ -171,24 +223,21 @@ async def simulation(df):
             for ticker in portfolio.keys()
             if (date, ticker) in group.index
         }
-        ma200s = {
-            ticker: group.loc[(date, ticker), ("Valor", "MA200")]
-            for ticker in portfolio.keys()
-            if (date, ticker) in group.index
-        }
+        
         # Señales de compra y venta
         for ticker in portfolio.keys():
             if ticker in close_prices and ticker in rsis:
-                if not math.isnan(rsis[ticker]) and not math.isnan(
-                    close_prices[ticker]
-                ):
+                if not math.isnan(rsis[ticker]) and not math.isnan(close_prices[ticker]):
                     if rsis[ticker] <= 25 and cash > 0:
+                        # Verificar si la MA50 está en tendencia alcista
+                        ma50_series = df_ma50.xs(ticker, level="Empresa")["MA50"]
+                        ma20_series = df_ma20.xs(ticker, level="Empresa")["MA20"]
+                        # if await is_sma_trending(ma20_series, ma50_series, date):
                         # Comprar si no hay acciones de este ticker en cartera
                         if portfolio[ticker] == 0: 
                             print(f'Cash antes de comprar: {cash}')
                             # Calcular el monto a invertir y las acciones fraccionarias a comprar
                             amount_to_invest = initial_cash * 0.3
-                          
                             if amount_to_invest >= cash:
                                 print(f'Cash: {cash} mas pequeño que cantidad a invertir: {amount_to_invest}')
                                 shares_to_buy = cash / close_prices[ticker]
@@ -206,7 +255,7 @@ async def simulation(df):
                             buy_prices[ticker] = close_prices[ticker]
                             buy_dates[ticker] = date  # Registrar la fecha de la primera compra
                             print(f'Cash despues de comprar: {cash}')
-                    elif rsis[ticker] >= 70 and portfolio[ticker] > 0:
+                    elif rsis[ticker] >= 75 and portfolio[ticker] > 0:
                         print(f'Venta con beneficios de ticker: {ticker}, precio: {close_prices[ticker]}, fecha: {date}')
                         cp_out = close_prices[ticker]
                         c = cp_out - buy_prices[ticker]
@@ -222,8 +271,7 @@ async def simulation(df):
                         buy_prices[ticker] = None
                         buy_dates[ticker] = (
                             None  # Limpiar la fecha de compra registrada
-                        )
-                      
+                        ) 
                     elif (
                         buy_prices[ticker] is not None
                         and close_prices[ticker] < buy_prices[ticker] * 0.9
@@ -237,7 +285,7 @@ async def simulation(df):
                         print(f'Esto es A: {a}')
                         total_percent = a
                         print(f'Total percent: {total_percent}')
-                        
+                      
                         cash += portfolio[ticker] * close_prices[ticker] # Vender todas las acciones
                         portfolio[ticker] = 0
                         # Calcular duración de retención y añadir a la lista
@@ -246,7 +294,7 @@ async def simulation(df):
                         buy_dates[ticker] = (
                             None  # Limpiar la fecha de compra registrada
                         )
-                    
+
         # Valor actual de la cartera en cada paso
         current_value = cash + sum(
             portfolio[ticker] * close_prices[ticker]
@@ -257,7 +305,6 @@ async def simulation(df):
         temp_df = pd.DataFrame(
             {"Fecha": [date], "Portfolio Value": [current_value]}
         ).dropna(how="all", axis=1)
-        # temp_df_cleaned = temp_df.dropna(how='all', axis=1)
         # Concatenar el DataFrame temporal al DataFrame de seguimiento
         df_portfolio_tracking = pd.concat(
             [df_portfolio_tracking, temp_df], ignore_index=True

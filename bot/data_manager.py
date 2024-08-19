@@ -37,16 +37,18 @@ async def get_date(year):
 async def trim_data(data, ticker):
     data_rsi = {'Symbol': ticker, 'RSI': {}}
     data_close_price = {'Symbol': ticker, 'CLOSE': {}}
-    data_ma200 = {'Symbol': ticker, 'MA200': {}}
+    data_ma50 = {'Symbol': ticker, 'MA50': {}}
+    data_ma20 = {'Symbol': ticker, 'MA20': {}}
 
-    for date, values in data[['Close', 'RSI', "MA200"]].iterrows():
+    for date, values in data[['Close', 'RSI', "MA50", "MA20"]].iterrows():
         # print(f'Fecha: {date}')
         date = date.strftime("%Y-%m-%d")
         data_rsi["RSI"][date] = values['RSI']
         data_close_price["CLOSE"][date] = values['Close']
-        data_ma200['MA200'][date] = values['MA200']
+        data_ma50['MA50'][date] = values['MA50']
+        data_ma20['MA20'][date] = values['MA20']
 
-    return data_rsi, data_close_price, data_ma200
+    return data_rsi, data_close_price, data_ma50, data_ma20
 
 async def get_data():
     folder_path = "data"
@@ -60,8 +62,11 @@ async def get_data():
             os.makedirs(f"{folder_path}/{year}/rsi")
         if not os.path.exists(f"{folder_path}/{year}/close_price"):
             os.makedirs(f"{folder_path}/{year}/close_price")
-        if not os.path.exists(f"{folder_path}/{year}/ma200"):
-            os.makedirs(f"{folder_path}/{year}/ma200")
+        if not os.path.exists(f"{folder_path}/{year}/ma50"):
+            os.makedirs(f"{folder_path}/{year}/ma50")
+        if not os.path.exists(f"{folder_path}/{year}/ma20"):
+            os.makedirs(f"{folder_path}/{year}/ma20")
+
         print(matrix[year])
         data_rsi = {}
         data_close_price = {}
@@ -78,7 +83,8 @@ async def get_data():
             # Calcular el RSI diario y agregarlo al DataFrame
             rsi = RSIIndicator(close=data['Close'], window=14)
             data['RSI'] = rsi.rsi()
-            data['MA200'] = data['Close'].rolling(window=200).mean()
+            data['MA50'] = data['Close'].rolling(window=50).mean()
+            data['MA20'] = data['Close'].rolling(window=20).mean()
             # Eliminar filas con valores NaN que pueden aparecer al inicio
             data = data.dropna()
             # Convertir la cadena a un número entero
@@ -87,7 +93,7 @@ async def get_data():
             # data = data[~data.index.year.isin([year])]
             # year = year + 1
             # year = str(year)
-            data_rsi, data_close_price, data_ma200 = await trim_data(data, ticker)
+            data_rsi, data_close_price, data_ma50, data_ma20 = await trim_data(data, ticker)
 
             if not os.path.exists(f"{folder_path}/{year}/close_price/{ticker}.json"):
                 file_path = os.path.join(folder_path, year, "close_price", f"{ticker}.json")
@@ -99,11 +105,16 @@ async def get_data():
                 with open(file_path, "w") as json_file:
                     json.dump(data_rsi, json_file, indent=4)
 
-            if not os.path.exists(f"{folder_path}/{year}/ma200/{ticker}.json"):
-                file_path = os.path.join(folder_path, year, "ma200", f"{ticker}.json")
+            if not os.path.exists(f"{folder_path}/{year}/ma50/{ticker}.json"):
+                file_path = os.path.join(folder_path, year, "ma50", f"{ticker}.json")
                 with open(file_path, "w") as json_file:
-                    json.dump(data_ma200, json_file, indent=4)
+                    json.dump(data_ma50, json_file, indent=4)
             
+            if not os.path.exists(f"{folder_path}/{year}/ma20/{ticker}.json"):
+                file_path = os.path.join(folder_path, year, "ma20", f"{ticker}.json")
+                with open(file_path, "w") as json_file:
+                    json.dump(data_ma20, json_file, indent=4)
+
             await asyncio.sleep(2)  # Espera 2 segundos antes de pasar a la siguiente iteración
 
 

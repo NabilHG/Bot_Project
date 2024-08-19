@@ -44,7 +44,7 @@ async def main() -> None:
     # Iniciar el análisis diario en un hilo separado
     analysis_task = asyncio.create_task(start_analysis_scheduler())
     """
-    # await data_manager.get_data()
+    await data_manager.get_data()
 
 
     dp.include_router(backtest.router)
