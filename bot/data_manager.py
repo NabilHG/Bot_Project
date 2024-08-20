@@ -35,20 +35,34 @@ async def get_date(year):
         )
 
 async def trim_data(data, ticker):
+    # Inicializar diccionarios para almacenar los datos
     data_rsi = {'Symbol': ticker, 'RSI': {}}
     data_close_price = {'Symbol': ticker, 'CLOSE': {}}
-    data_ma50 = {'Symbol': ticker, 'MA50': {}}
-    data_ma20 = {'Symbol': ticker, 'MA20': {}}
+    data_high = {'Symbol': ticker, 'HIGH': {}}
+    data_low = {'Symbol': ticker, 'LOW': {}}
+    data_volume = {'Symbol': ticker, 'VOLUME': {}}
 
-    for date, values in data[['Close', 'RSI', "MA50", "MA20"]].iterrows():
-        # print(f'Fecha: {date}')
+    # Iterar sobre cada fila en el DataFrame
+    for date, values in data[['Close', 'RSI', 'High', 'Low', 'Volume']].iterrows():
+        # Formatear la fecha como cadena
         date = date.strftime("%Y-%m-%d")
+        # Almacenar los valores en los diccionarios correspondientes
         data_rsi["RSI"][date] = values['RSI']
         data_close_price["CLOSE"][date] = values['Close']
-        data_ma50['MA50'][date] = values['MA50']
-        data_ma20['MA20'][date] = values['MA20']
+        data_high["HIGH"][date] = values['High']
+        data_low["LOW"][date] = values['Low']
+        data_volume["VOLUME"][date] = values['Volume']
 
-    return data_rsi, data_close_price, data_ma50, data_ma20
+    # Devolver los diccionarios con los datos almacenados
+    all_data = {
+        "rsi" : data_rsi,
+        "close_price" : data_close_price,
+        "high" : data_high,
+        "low" : data_low,
+        "volume" : data_volume
+    }
+    return all_data
+
 
 async def get_data():
     folder_path = "data"
@@ -62,60 +76,40 @@ async def get_data():
             os.makedirs(f"{folder_path}/{year}/rsi")
         if not os.path.exists(f"{folder_path}/{year}/close_price"):
             os.makedirs(f"{folder_path}/{year}/close_price")
-        if not os.path.exists(f"{folder_path}/{year}/ma50"):
-            os.makedirs(f"{folder_path}/{year}/ma50")
-        if not os.path.exists(f"{folder_path}/{year}/ma20"):
-            os.makedirs(f"{folder_path}/{year}/ma20")
-
-        print(matrix[year])
-        data_rsi = {}
-        data_close_price = {}
+        if not os.path.exists(f"{folder_path}/{year}/high"):
+            os.makedirs(f"{folder_path}/{year}/high")
+        if not os.path.exists(f"{folder_path}/{year}/low"):
+            os.makedirs(f"{folder_path}/{year}/low")
+        if not os.path.exists(f"{folder_path}/{year}/volume"):
+            os.makedirs(f"{folder_path}/{year}/volume")
 
         for ticker in matrix[year]:
-            print(ticker)
             start_date, end_date = await get_date(f'{year}')
-            start_date = start_date - timedelta(days=730)
-            # Convertimos la nueva fecha a una cadena si es necesario
+            start_date = start_date - timedelta(days=200)  # Cambio para extraer datos adicionales si es necesario
             start_date = start_date.strftime("%Y-%m-%d")
             end_date = end_date.strftime("%Y-%m-%d")
 
+            print(ticker)
             data = yf.download(ticker, start=start_date, end=end_date)
-            # Calcular el RSI diario y agregarlo al DataFrame
             rsi = RSIIndicator(close=data['Close'], window=14)
             data['RSI'] = rsi.rsi()
-            data['MA50'] = data['Close'].rolling(window=50).mean()
-            data['MA20'] = data['Close'].rolling(window=20).mean()
-            # Eliminar filas con valores NaN que pueden aparecer al inicio
             data = data.dropna()
-            # Convertir la cadena a un número entero
             # year = int(year) - 1
-            # Borramos los datos de los anteriores años
             # data = data[~data.index.year.isin([year])]
             # year = year + 1
             # year = str(year)
-            data_rsi, data_close_price, data_ma50, data_ma20 = await trim_data(data, ticker)
 
-            if not os.path.exists(f"{folder_path}/{year}/close_price/{ticker}.json"):
-                file_path = os.path.join(folder_path, year, "close_price", f"{ticker}.json")
-                with open(file_path, "w") as json_file:
-                    json.dump(data_close_price, json_file, indent=4)
+            # data_rsi, data_close_price, data_high, data_low, data_volume = await trim_data(data, ticker)
+            all_data = await trim_data(data, ticker)
 
-            if not os.path.exists(f"{folder_path}/{year}/rsi/{ticker}.json"):
-                file_path = os.path.join(folder_path, year, "rsi", f"{ticker}.json")
-                with open(file_path, "w") as json_file:
-                    json.dump(data_rsi, json_file, indent=4)
-
-            if not os.path.exists(f"{folder_path}/{year}/ma50/{ticker}.json"):
-                file_path = os.path.join(folder_path, year, "ma50", f"{ticker}.json")
-                with open(file_path, "w") as json_file:
-                    json.dump(data_ma50, json_file, indent=4)
-            
-            if not os.path.exists(f"{folder_path}/{year}/ma20/{ticker}.json"):
-                file_path = os.path.join(folder_path, year, "ma20", f"{ticker}.json")
-                with open(file_path, "w") as json_file:
-                    json.dump(data_ma20, json_file, indent=4)
+            for folder_name in all_data:
+                file_path = os.path.join(folder_path, year, folder_name, f"{ticker}.json")
+                if not os.path.exists(file_path):
+                    with open(file_path, "w") as json_file:
+                        json.dump(all_data[folder_name], json_file, indent=4)
 
             await asyncio.sleep(2)  # Espera 2 segundos antes de pasar a la siguiente iteración
+
 
 
 

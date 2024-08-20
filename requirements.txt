@@ -17,8 +17,9 @@ lxml==5.2.2
 magic-filter==1.0.12
 multidict==6.0.5
 multitasking==0.0.11
-numpy==2.0.0
+numpy==2.1.0
 pandas==2.2.2
+pandas_ta==0.3.14b0
 peewee==3.17.6
 platformdirs==4.2.2
 pydantic==2.5.3
@@ -29,6 +30,7 @@ pytz==2024.1
 requests==2.32.3
 six==1.16.0
 soupsieve==2.5
+ta==0.11.0
 typing_extensions==4.9.0
 tzdata==2024.1
 urllib3==2.2.2
