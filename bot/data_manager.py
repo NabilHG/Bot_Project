@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from ta.momentum import RSIIndicator
 import yfinance as yf
 import asyncio
+import talib as ta
 
 matrix = {
     "2000": ["MSFT", "GE", "CSCO", "WMT", "XOM", "INTC", "C", "PFE", "NOK", "TM", "DTE", "HD", "ORCL", "MRK"],
@@ -13,6 +14,8 @@ matrix = {
     "2020": ["AAPL", "MSFT", "AMZN", "GOOG", "META", "BRK-B", "TSM", "ASML", "TSLA", "BABA", "JPM", "V", "MA", "UNH", "HD"],
     # "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZN", "META", "BRK-B", "LLY", "AVGO", "TSM", "NVO", "JPM"],
 }
+
+
 
 async def get_date(year):
     year_map = {  
@@ -34,34 +37,30 @@ async def get_date(year):
             f"Year {year} is not valid. Valid years are: {', '.join(year_map.keys())}"
         )
 
+
 async def trim_data(data, ticker):
     # Inicializar diccionarios para almacenar los datos
     data_rsi = {'Symbol': ticker, 'RSI': {}}
     data_close_price = {'Symbol': ticker, 'CLOSE': {}}
-    data_high = {'Symbol': ticker, 'HIGH': {}}
-    data_low = {'Symbol': ticker, 'LOW': {}}
-    data_volume = {'Symbol': ticker, 'VOLUME': {}}
 
     # Iterar sobre cada fila en el DataFrame
-    for date, values in data[['Close', 'RSI', 'High', 'Low', 'Volume']].iterrows():
+    for date, values in data[['Close', 'RSI']].iterrows():
+    # for date, values in data[['Close', 'RSI']].iterrows():
+
         # Formatear la fecha como cadena
         date = date.strftime("%Y-%m-%d")
+
         # Almacenar los valores en los diccionarios correspondientes
         data_rsi["RSI"][date] = values['RSI']
         data_close_price["CLOSE"][date] = values['Close']
-        data_high["HIGH"][date] = values['High']
-        data_low["LOW"][date] = values['Low']
-        data_volume["VOLUME"][date] = values['Volume']
 
     # Devolver los diccionarios con los datos almacenados
     all_data = {
-        "rsi" : data_rsi,
-        "close_price" : data_close_price,
-        "high" : data_high,
-        "low" : data_low,
-        "volume" : data_volume
+        "rsi": data_rsi,
+        "close_price": data_close_price,
     }
     return all_data
+
 
 
 async def get_data():
@@ -70,45 +69,42 @@ async def get_data():
         os.makedirs(folder_path)
 
     for year in matrix:
-        if not os.path.exists(f"{folder_path}/{year}"):
-            os.makedirs(f"{folder_path}/{year}")
-        if not os.path.exists(f"{folder_path}/{year}/rsi"):
-            os.makedirs(f"{folder_path}/{year}/rsi")
-        if not os.path.exists(f"{folder_path}/{year}/close_price"):
-            os.makedirs(f"{folder_path}/{year}/close_price")
-        if not os.path.exists(f"{folder_path}/{year}/high"):
-            os.makedirs(f"{folder_path}/{year}/high")
-        if not os.path.exists(f"{folder_path}/{year}/low"):
-            os.makedirs(f"{folder_path}/{year}/low")
-        if not os.path.exists(f"{folder_path}/{year}/volume"):
-            os.makedirs(f"{folder_path}/{year}/volume")
+        year_folder = f"{folder_path}/{year}"
+        if not os.path.exists(year_folder):
+            os.makedirs(year_folder)
+        if not os.path.exists(f"{year_folder}/rsi"):
+            os.makedirs(f"{year_folder}/rsi")
+        if not os.path.exists(f"{year_folder}/close_price"):
+            os.makedirs(f"{year_folder}/close_price")
 
         for ticker in matrix[year]:
             start_date, end_date = await get_date(f'{year}')
-            start_date = start_date - timedelta(days=200)  # Cambio para extraer datos adicionales si es necesario
+            start_date = start_date - timedelta(days=200)  # Extraer datos adicionales si es necesario
             start_date = start_date.strftime("%Y-%m-%d")
             end_date = end_date.strftime("%Y-%m-%d")
 
-            print(ticker)
+            print(f"Fetching data for {ticker} from {start_date} to {end_date}")
             data = yf.download(ticker, start=start_date, end=end_date)
+            
+            # Calcular RSI
             rsi = RSIIndicator(close=data['Close'], window=14)
             data['RSI'] = rsi.rsi()
+            
+            # Eliminar filas con NaN después de calcular RSI y MACD
             data = data.dropna()
-            # year = int(year) - 1
-            # data = data[~data.index.year.isin([year])]
-            # year = year + 1
-            # year = str(year)
-
-            # data_rsi, data_close_price, data_high, data_low, data_volume = await trim_data(data, ticker)
+            
+            # Filtrar los datos al rango de fechas deseado
             all_data = await trim_data(data, ticker)
 
-            for folder_name in all_data:
+            for folder_name, data_dict in all_data.items():
                 file_path = os.path.join(folder_path, year, folder_name, f"{ticker}.json")
                 if not os.path.exists(file_path):
                     with open(file_path, "w") as json_file:
-                        json.dump(all_data[folder_name], json_file, indent=4)
-
+                        data_dict_str_keys = {str(k): v for k, v in data_dict.items()}
+                        json.dump(data_dict_str_keys, json_file, indent=4)
+            
             await asyncio.sleep(2)  # Espera 2 segundos antes de pasar a la siguiente iteración
+
 
 
 

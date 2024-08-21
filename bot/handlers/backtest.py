@@ -8,6 +8,7 @@ import json
 import pandas as pd
 import math
 import numpy as np
+import talib as ta
 
 router = Router()
 
@@ -74,9 +75,6 @@ async def calculate_month_diff(begin_date):
 async def calculate_maximum_drawdown_profit():
     data_close_price_raw = await load_data("data", "close_price", "CLOSE")
     data_rsi_raw = await load_data("data", "rsi", "RSI")
-    data_high_raw = await load_data("data", "high", "HIGH")
-    data_low_raw = await load_data("data", "low", "LOW")
-    data_volume_raw = await load_data("data", "volume", "VOLUME")
 
     closing_prices = {}
     for response in data_close_price_raw:
@@ -88,113 +86,29 @@ async def calculate_maximum_drawdown_profit():
             closing_prices[symbol][date] = {"close": prices}
 
     rsi_data = {}
-
     for data in data_rsi_raw:
         symbol = data["Symbol"]
-        if symbol not in data_rsi_raw:
+        if symbol not in rsi_data:
             rsi_data[symbol] = {}
 
         for date, rsi in data["RSI"].items():
             rsi_data[symbol][date] = rsi
 
-    high_data = {}
 
-    for data in data_high_raw:
-        symbol = data["Symbol"]
-        if symbol not in data_high_raw:
-            high_data[symbol] = {}
-
-        for date, high in data["HIGH"].items():
-            high_data[symbol][date] = high
-
-    low_data = {}
-
-    for data in data_low_raw:
-        symbol = data["Symbol"]
-        if symbol not in data_low_raw:
-            low_data[symbol] = {}
-
-        for date, low in data["LOW"].items():
-            low_data[symbol][date] = low
-
-    volume_data = {}
-
-    for data in data_volume_raw:
-        symbol = data["Symbol"]
-        if symbol not in data_rsi_raw:
-            volume_data[symbol] = {}
-
-        for date, volume in data["VOLUME"].items():
-            volume_data[symbol][date] = volume
-
-
-    df = await get_dataframe(rsi_data, closing_prices, high_data, low_data, volume_data)
+    df = await get_dataframe(rsi_data, closing_prices)
     max_drawdown, profitability, average_hold_duration, avg_notification = await simulation(df)
 
     return max_drawdown, profitability, average_hold_duration, avg_notification
 
-async def calculate_atr(df, period=14):
-    df = df.copy()
-    # Asegúrate de estar modificando el DataFrame original usando .loc
-    df.loc[:, ('prev_close')] = df[('Valor', 'Close')].shift(1)
-    
-    df.loc[:, ('Valor', 'tr')] = np.maximum(
-        df[('Valor', 'High')] - df[('Valor', 'Low')],
-        np.maximum(
-            np.abs(df[('Valor', 'High')] - df[('prev_close')]),
-            np.abs(df[('Valor', 'Low')] - df[('prev_close')])
-        )
-    )
-    
-    # Calcular el ATR usando el promedio móvil del TR
-    df.loc[:, ('Valor', 'ATR')] = df[('Valor', 'tr')].rolling(window=period).mean()
-    
-    return df
 
-
-async def calculate_vwap(df):
-    # Hacer una copia explícita del DataFrame
-    df = df.copy()
-
-    df.loc[:, ('Valor', 'cum_vol')] = df[('Valor', 'Volume')].cumsum()
-    df.loc[:, ('Valor', 'cum_vol_price')] = (df[('Valor', 'Close')] * df[('Valor', 'Volume')]).cumsum()
-
-    # Calcular el VWAP
-    df.loc[:, ('Valor', 'VWAP')] = df[('Valor', 'cum_vol_price')] / df[('Valor', 'cum_vol')]
-    
-    return df
-
-async def calculate_obv(df):
-    # Hacer una copia explícita del DataFrame
-    df = df.copy()
-
-    df.loc[:, ('Valor', 'obv')] = np.where(
-        df[('Valor', 'Close')] > df[('Valor', 'Close')].shift(1),
-        df[('Valor', 'Volume')],
-        np.where(df[('Valor', 'Close')] < df[('Valor', 'Close')].shift(1), -df[('Valor', 'Volume')], 0)
-    )
-
-    # Calcular el OBV
-    df.loc[:, ('Valor', 'OBV')] = df[('Valor', 'obv')].cumsum()
-
-    return df
-
-
-async def get_dataframe(rsi_data, close_data, high_data, low_data, volume_data):
-    # Crear un DataFrame para RSI, Close, High, Low y Volume
+async def get_dataframe(rsi_data, close_data):
+    # Crear un DataFrame para RSI, Close y MACD
     data_tuples = []
     for empresa, fechas in rsi_data.items():
-        for fecha, valores in fechas.items():
-            rsi = float(valores)
+        for fecha, rsi in fechas.items():
             close = float(close_data[empresa][fecha]["close"]) if fecha in close_data[empresa] else None
-            high = float(high_data[empresa][fecha]) if fecha in high_data[empresa] else None
-            low = float(low_data[empresa][fecha]) if fecha in low_data[empresa] else None
-            volume = float(volume_data[empresa][fecha]) if fecha in volume_data[empresa] else None
             data_tuples.append((fecha, empresa, "RSI", rsi))
             data_tuples.append((fecha, empresa, "Close", close))
-            data_tuples.append((fecha, empresa, "High", high))
-            data_tuples.append((fecha, empresa, "Low", low))
-            data_tuples.append((fecha, empresa, "Volume", volume))
 
     df = pd.DataFrame(data_tuples, columns=["Fecha", "Empresa", "Tipo", "Valor"])
     df.set_index(["Fecha", "Empresa", "Tipo"], inplace=True)
@@ -205,33 +119,8 @@ async def get_dataframe(rsi_data, close_data, high_data, low_data, volume_data):
     # Opcional: Eliminar filas donde todos los valores sean NaN en df
     df_clean = df.dropna(how='all')
 
-    # Calcular ATR, OBV y VWAP por empresa
-    indicators = {}
-    for empresa in df_clean.index.get_level_values('Empresa').unique():
-        empresa_data = df_clean.xs(empresa, level='Empresa', drop_level=False)
-        
-        # Asegurarse de que hay datos para calcular los indicadores
-        if not empresa_data.empty:
-            empresa_data = await calculate_atr(empresa_data)
-            empresa_data = await calculate_obv(empresa_data)
-            empresa_data = await calculate_vwap(empresa_data)
+    return df_clean
 
-            # Guardar el DataFrame temporal en el diccionario
-            indicators[empresa] = empresa_data
-
-    # print(f'Indicators: {indicators}')
-  # Convertir los DataFrames a diccionarios y luego a una estructura JSON
-    df = indicators.get("V")
-    
-    # Guardar la cadena de texto en un archivo .txt
-    with open("aaaa.txt", "w") as file:
-        file.write(df.to_string())
-    # Concatenar los datos calculados de todas las empresas
-    
-    
-    df_final = pd.concat(indicators.values())
-
-    return df_final
 
 
 
@@ -243,9 +132,7 @@ async def simulation(df):
     cash = initial_cash
     portfolio = {ticker: 0 for ticker in df.index.get_level_values("Empresa").unique()}
     buy_prices = {ticker: None for ticker in portfolio.keys()}
-    buy_dates = {
-        ticker: None for ticker in portfolio.keys()
-    }  # Registro de fecha de compra
+    buy_dates = {ticker: None for ticker in portfolio.keys()}
     hold_durations = []  # Lista para almacenar las duraciones de las posiciones
     buy_notification = 0
     total_percent = 0
@@ -263,65 +150,72 @@ async def simulation(df):
             for ticker in portfolio.keys()
             if (date, ticker) in group.index
         }
-        atrs = {
-            ticker: group.loc[(date, ticker), ("Valor", "ATR")]
-            for ticker in portfolio.keys()
-            if (date, ticker) in group.index
-        }
-        obvs = {
-            ticker: group.loc[(date, ticker), ("Valor", "OBV")]
-            for ticker in portfolio.keys()
-            if (date, ticker) in group.index
-        }
-        vwaps = {
-            ticker: group.loc[(date, ticker), ("Valor", "VWAP")]
-            for ticker in portfolio.keys()
-            if (date, ticker) in group.index
-        }
-        
+
+
         # Señales de compra y venta
         for ticker in portfolio.keys():
-            if ticker in close_prices and ticker in rsis and ticker in atrs and ticker in obvs and ticker in vwaps:
-                if not math.isnan(rsis[ticker]) and not math.isnan(close_prices[ticker]):
-                    
-                    # Estrategia de compra basada en RSI + ATR
-                    if rsis[ticker] <= 25 and close_prices[ticker] < vwaps[ticker] and cash > 0:
-                        if portfolio[ticker] == 0: 
+            if (
+                ticker in close_prices
+                and ticker in rsis
+            ):
+                if (
+                    not math.isnan(rsis[ticker])
+                    and not math.isnan(close_prices[ticker])
+                ):
+                    # Señal de compra: RSI en sobreventa (<=25) 
+                    if (
+                        rsis[ticker] <= 25
+                        and cash > 0
+                    ):
+                        # Comprar si no hay acciones de este ticker en cartera
+                        if portfolio[ticker] == 0:
+                            print(f'Compramos {ticker}, rsi: {rsis[ticker]}, fecha: {date}, cash: {cash}')
                             amount_to_invest = initial_cash * 0.3
                             if amount_to_invest >= cash:
                                 shares_to_buy = cash / close_prices[ticker]
                                 cash = 0
                             else:
-                                shares_to_buy = amount_to_invest / close_prices[ticker]  
+                                shares_to_buy = amount_to_invest / close_prices[ticker]
                                 cash -= amount_to_invest
+                            print(f'Cantidad a invertir: {amount_to_invest}')
+                            print(f'Cash despues de comprar: {cash}')
                             portfolio[ticker] += shares_to_buy
                             buy_notification += 1
                             buy_prices[ticker] = close_prices[ticker]
                             buy_dates[ticker] = date
 
-                    # Estrategia de venta basada en RSI + OBV
-                    elif rsis[ticker] >= 70 and portfolio[ticker] > 0 and obvs[ticker] < 0:
+                    # Señal de venta: RSI en sobrecompra (>=70) 
+                    elif (
+                        rsis[ticker] >= 70
+                        and portfolio[ticker] > 0
+                    ):
+                        print(f'Vendemos con beneficios {ticker}, rsi: {rsis[ticker]}, fecha: {date}, cash: {cash}')
                         cp_out = close_prices[ticker]
-                        c = cp_out - buy_prices[ticker]
-                        percent = (c / buy_prices[ticker]) * 100
+                        percent = ((cp_out - buy_prices[ticker]) / buy_prices[ticker]) * 100
                         total_percent += percent
+
                         cash += portfolio[ticker] * close_prices[ticker]
+                        print(f'Cash despues de vender: {cash}')
                         portfolio[ticker] = 0
+
                         hold_durations.append((date - buy_dates[ticker]).days)
                         buy_prices[ticker] = None
                         buy_dates[ticker] = None
 
-                    # Estrategia de venta por Stop-Loss basado en ATR
+                    # Señal de stop loss: Venta si el precio cae un 10% o más desde la compra
                     elif (
                         buy_prices[ticker] is not None
-                        and close_prices[ticker] < buy_prices[ticker] - (atrs[ticker] * 2)
+                        and close_prices[ticker] < buy_prices[ticker] * 0.9
                     ):
+                        print(f'Vendemos con perdidas {ticker}, rsi: {rsis[ticker]}, fecha: {date}, cash: {cash}')
                         cp_out = close_prices[ticker]
-                        c = cp_out - buy_prices[ticker]
-                        percent = (c / buy_prices[ticker]) * 100
+                        percent = ((cp_out - buy_prices[ticker]) / buy_prices[ticker]) * 100
                         total_percent += percent
+
                         cash += portfolio[ticker] * close_prices[ticker]
+                        print(f'Cash despues de vender: {cash}')
                         portfolio[ticker] = 0
+
                         hold_durations.append((date - buy_dates[ticker]).days)
                         buy_prices[ticker] = None
                         buy_dates[ticker] = None
@@ -341,11 +235,9 @@ async def simulation(df):
             [df_portfolio_tracking, temp_df], ignore_index=True
         )
 
+    # Calcular duraciones promedio y otros datos finales
     if hold_durations:
         average_hold_duration = sum(hold_durations) / len(hold_durations)
-
-    # Finalmente, visualizar o guardar los resultados
-    print(df_portfolio_tracking)
 
     # Calcular max drawdown y rentabilidad
     df_portfolio_tracking["Peak"] = df_portfolio_tracking["Portfolio Value"].cummax()
@@ -355,24 +247,27 @@ async def simulation(df):
     df_portfolio_tracking["Drawdown Percent"] = (
         df_portfolio_tracking["Drawdown"] / df_portfolio_tracking["Peak"]
     )
-    # Maximum drawdown
+
     max_drawdown = df_portfolio_tracking["Drawdown Percent"].min()
-    # Rentabilidad del portafolio
     final_portfolio_value = df_portfolio_tracking["Portfolio Value"].iloc[-1]
     profitability = (final_portfolio_value - initial_cash) / initial_cash * 100
-    print(f"Maximum Drawdown: {max_drawdown * 100:.2f}%")
-    print(f"Profitability: {profitability:.2f}%")
+
     total_months = await calculate_month_diff("2000-01-01")
     avg_notification = buy_notification / total_months
-    print(f"Cantidad de alertas: {buy_notification}, meses totales: {total_months}, media: {avg_notification}")        
-    print(f"Media de dias que se tiene una accion: {average_hold_duration}")
-    print(f'Porcetaje total de las operaciones: {total_percent}')
+
+    # Redondear y formatear los resultados
     max_drawdown = round(max_drawdown * 100, 2)
     profitability = round(profitability, 2)
     avg_notification = round(avg_notification, 2)
     average_hold_duration = round(average_hold_duration, 2)
-    
+    print(f'Value: {df_portfolio_tracking["Portfolio Value"]}')
+    print(f"Maximum Drawdown: {max_drawdown}%")
+    print(f"Profitability: {profitability}%")
+    print(f"Average Hold Duration: {average_hold_duration} days")
+    print(f"Average Notifications per Month: {avg_notification}")
+
     return str(max_drawdown), str(profitability), str(average_hold_duration), str(avg_notification)
+
 
 
 

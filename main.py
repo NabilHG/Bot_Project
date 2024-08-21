@@ -46,7 +46,6 @@ async def main() -> None:
     """
     # await data_manager.get_data()
 
-
     dp.include_router(backtest.router)
     dp.include_router(info.router)
 
