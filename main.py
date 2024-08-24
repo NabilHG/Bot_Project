@@ -1,8 +1,7 @@
 import asyncio
 import logging
 import sys
-import subprocess
-from bot import api, config, data_manager
+from bot import api, config, data_manager, update_data
 from bot.handlers import backtest, info
 from dotenv import load_dotenv
 
@@ -34,11 +33,20 @@ async def start_analysis_scheduler():
 
 async def update_data_task():
     while True:
-        await data_manager.update_data()
+        await update_data.update_data()
         await asyncio.sleep(5)
 
+updated_data = False
+
 async def main() -> None:
+    updated_data = False
+
     # asyncio.create_task(update_data_task())
+    updated_data = await update_data.update_data(updated_data)
+    print(f'Updated data: {updated_data}')
+    updated_data = await update_data.update_data(updated_data)
+    print(f'Updated data: {updated_data}')
+    
     bot, dp = await api.init_bot(config.TELEGRAM_BOT_TOKEN)
     """
     # Iniciar el análisis diario en un hilo separado

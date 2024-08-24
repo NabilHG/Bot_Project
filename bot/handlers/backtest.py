@@ -7,8 +7,7 @@ import os
 import json
 import pandas as pd
 import math
-import numpy as np
-import talib as ta
+
 
 router = Router()
 
@@ -52,12 +51,14 @@ async def load_data(base_path, subfolder_name, type):
                                         type: filtered
                                     })
     return data_list
+
 async def calculate_month_diff(begin_date):
     ancient_date = datetime.strptime(f"{begin_date}", "%Y-%m-%d")
     current_date = datetime.now()
     delta = relativedelta(current_date, ancient_date)
     total_months = delta.years * 12 + delta.months
     return total_months
+
 async def calculate_maximum_drawdown_profit():
     data_close_price_raw = await load_data("data", "close_price", "CLOSE")
     data_rsi_raw = await load_data("data", "rsi", "RSI")
@@ -78,6 +79,7 @@ async def calculate_maximum_drawdown_profit():
     df = await get_dataframe(rsi_data, closing_prices)
     max_drawdown, profitability, average_hold_duration, avg_notification = await simulation(df)
     return max_drawdown, profitability, average_hold_duration, avg_notification
+
 async def get_dataframe(rsi_data, close_data):
     # Crear un DataFrame para RSI, Close y MACD
     data_tuples = []
@@ -94,6 +96,7 @@ async def get_dataframe(rsi_data, close_data):
     # Opcional: Eliminar filas donde todos los valores sean NaN en df
     df_clean = df.dropna(how='all')
     return df_clean
+
 async def simulation(df):
     # Inicializar el DataFrame para almacenar la fecha y el valor del portafolio
     df_portfolio_tracking = pd.DataFrame(columns=["Fecha", "Portfolio Value"])
@@ -221,6 +224,7 @@ async def simulation(df):
     print(f"Average Hold Duration: {average_hold_duration} days")
     print(f"Average Notifications per Month: {avg_notification}")
     return str(max_drawdown), str(profitability), str(average_hold_duration), str(avg_notification)
+
 @router.message(Command(commands=["backtest", "BACKTEST", "Backtest", "BackTest"]))
 async def backtest_handler(message: Message):
     max_drawdown, profitability, average_hold_duration, avg_notification = await calculate_maximum_drawdown_profit()
