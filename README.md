@@ -235,5 +235,68 @@ Then do a full object store check. Which, at this point, should succeed without 
 git fsck --full
 ```
 
+## MySQL Installation
 
+Run the following commands:
+```bash
+wget https://dev.mysql.com/get/mysql-apt-config_0.8.30-1_all.deb
+```
+```bash
+sudo dpkg -i mysql-apt-config_0.8.30-1_all.deb
+```
+```bash
+sudo apt update
+```
+Then
+```bash
+sudo apt install mysql-server
+```
+This error will appear probably
+```bash
+Error: Unable to correct problems, you have held broken packages.
+```
+So install libssl1.1_1.1.1w-0+deb11u1_amd64.deb, via Debian packages: 
+```bash
+https://packages.debian.org/bullseye/amd64/libssl1.1/download
+```
+Navegate to /Downloads and install the package
+```bash
+sudo dpkg -i libssl1.1_1.1.1w-0+deb11u1_amd64.deb
+```
+```bash
+sudo apt --fix-broken install
+```
+```bash
+sudo apt update
+```
 
+Install mysql-server
+```bash
+sudo apt install -y mysql-server
+```
+Verify
+```bash
+sudo systemctl status mysql
+```
+Secure config of mysql
+```bash
+sudo mysql_secure_installation
+```
+
+### Workbench(via snapd):
+```bash
+sudo apt update
+```
+```bash
+sudo apt install snapd
+```
+```bash
+sudo snap install snapd
+```
+```bash
+sudo snap install mysql-workbench-community
+```
+Run app: 
+```bash
+snap run mysql-workbench-community
+```

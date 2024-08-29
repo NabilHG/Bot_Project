@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import sys
-from bot import api, config, data_manager, update_data
+from bot import api, config, data_manager, update_data, analysis
 from bot.handlers import backtest, info
 from dotenv import load_dotenv
 from datetime import datetime, time, timedelta
@@ -29,8 +29,10 @@ async def update_data_task(updated_data, is_ticker_updated):
     
     return updated_data
 
-async def analysis():
+async def analysis_task():
     print("Analysis here")
+    await analysis.analysis()
+
 
 async def schedule_daily_task(updated_data, is_ticker_updated):
     """Programa la actualización diaria a las 22:30."""
@@ -42,7 +44,7 @@ async def schedule_daily_task(updated_data, is_ticker_updated):
         update_data = await update_data_task(updated_data, is_ticker_updated)
         print(f'Updated all data: {update_data}')
         if update_data:
-            await analysis()
+            await analysis_task()
         # Resetea el estado para la próxima actualización diaria
         updated_data[0] = False
         is_ticker_updated = {ticker: False for ticker in config.matrix[list(config.matrix.keys())[-1]]}
@@ -53,9 +55,10 @@ async def main() -> None:
     is_ticker_updated = {ticker: False for ticker in config.matrix[list(config.matrix.keys())[-1]]}
 
     # Inicia la tarea diaria
-    asyncio.create_task(schedule_daily_task(updated_data, is_ticker_updated))
+    # asyncio.create_task(schedule_daily_task(updated_data, is_ticker_updated))
 
-    
+    await analysis.analysis()
+
     bot, dp = await api.init_bot(config.TELEGRAM_BOT_TOKEN)
 
     # await data_manager.get_data()
