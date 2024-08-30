@@ -1,13 +1,14 @@
 import asyncio
 import logging
 import sys
+from aiogram.types import Message
 from bot import api, config, data_manager, update_data, analysis
 from bot.handlers import backtest, info
-from dotenv import load_dotenv
 from datetime import datetime, time, timedelta
+from aiogram import Router
+from bot.db import init_db
 
-load_dotenv()
-
+router = Router()
 
 async def wait_until(target_time: time):
     """Espera hasta que el reloj alcance la hora objetivo."""
@@ -50,18 +51,35 @@ async def schedule_daily_task(updated_data, is_ticker_updated):
         is_ticker_updated = {ticker: False for ticker in config.matrix[list(config.matrix.keys())[-1]]}
 
 
+def is_analysis_time():
+    """Verifica si estamos en el periodo de mantenimiento (22:25 - 22:40)."""
+    now = datetime.now().time()
+    maintenance_start = time(22, 24)
+    maintenance_end = time(22, 41)
+    return maintenance_start <= now <= maintenance_end
+
+# Handler específico solo para tiempos de mantenimiento
+@router.message(lambda message: is_analysis_time())  # Se registra solo para tiempos de mantenimiento
+async def handle_maintenance_message(message: Message):
+    await message.reply("🚧 Mientras se hace el análisis diario el bot no puede recibir mensajes. Por favor, inténtalo más tarde. 🚧")
+
 async def main() -> None:
+    # Inicializa la base de datos
+    # await init_db() 
     updated_data = [False]
     is_ticker_updated = {ticker: False for ticker in config.matrix[list(config.matrix.keys())[-1]]}
 
     # Inicia la tarea diaria
-    # asyncio.create_task(schedule_daily_task(updated_data, is_ticker_updated))
-
-    await analysis.analysis()
+    asyncio.create_task(schedule_daily_task(updated_data, is_ticker_updated))
+    
+    # await analysis.analysis()
+    
 
     bot, dp = await api.init_bot(config.TELEGRAM_BOT_TOKEN)
 
     # await data_manager.get_data()
+
+    dp.include_router(router)
 
     dp.include_router(backtest.router)
     dp.include_router(info.router)

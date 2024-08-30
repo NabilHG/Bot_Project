@@ -1,5 +1,4 @@
-# python-bot-skeleton
-This is a simple skeleton for a python bot using the python-telegram-bot library. It is intended to be used as a starting point for a bot project.
+# python-bot
 
 ## Virtual Environment
 To create a custom virtual environment for your dependencies to be contained, you can use the following command:
@@ -52,8 +51,7 @@ After you finish developing, you have to generate a requirements.txt with:
 pip freeze > requirements.txt
 ```
 ### bot_token.txt
-To use the bot, you must get a key provided by https://t.me/BotFather, then you shall place it inside a file called bot_token.txt (currently there is an example)
-TODO: change this to an environment variable
+To use the bot, you must get a key provided by https://t.me/BotFather
 
 
 ## Deploy (Docker)
