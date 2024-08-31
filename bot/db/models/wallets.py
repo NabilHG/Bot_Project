@@ -1,10 +1,14 @@
 from tortoise import fields
 from tortoise.models import Model
-from .users import User  # Importa Usuario para las relaciones
 
 class Wallet(Model):
     id = fields.IntField(pk=True)
-    # more fields here
-    usuario = fields.ForeignKeyField('models.User', related_name='wallets', on_delete=fields.CASCADE)
+    initial_capital = fields.FloatField()
+    current_capital = fields.FloatField()
+    profit = fields.FloatField()
+    max_drawdown = fields.FloatField()
+    number_of_operations = fields.IntField()
+    user = fields.ForeignKeyField('models.User', related_name='wallets', on_delete=fields.CASCADE)
+    
     class Meta:
         table = "wallets"

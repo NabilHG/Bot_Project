@@ -9,6 +9,22 @@ TELEGRAM_BOT_TOKEN = getenv("TELEGRAM_BOT_TOKEN")
 #db url
 DB_URL = getenv("DB_URL")
 
+TORTOISE_ORM = {
+    "connections": {
+        "default": "mysql://root:1234@127.0.0.1:3306/bot_rsi"  # Ajusta esto según tu configuración
+    },
+    "apps": {
+        "models": {
+            "models": ["bot.db.models"],
+            "default_connection": "default",
+        },
+        "aerich": {
+            "models": ["aerich.models"],
+            "default_connection": "default",
+        }
+    },
+}
+
 #dict with all tickers
 matrix = {
     "2000": ["MSFT", "GE", "CSCO", "WMT", "XOM", "INTC", "C", "PFE", "NOK", "TM", "DTE", "HD", "ORCL", "MRK"],

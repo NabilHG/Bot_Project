@@ -298,3 +298,21 @@ Run app:
 ```bash
 snap run mysql-workbench-community
 ```
+
+### Aerich
+Install aerich for migrations
+```bash
+pip install aerich
+```
+Initialized database
+```bash
+aerich --app models init-db
+```
+For doing migration
+```bash
+aerich migrate --name drop_column
+```
+For aplying the migration
+```bash
+aerich upgrade
+```
