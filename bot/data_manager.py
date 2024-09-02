@@ -4,15 +4,8 @@ from datetime import datetime, timedelta
 import yfinance as yf
 import asyncio
 from ta.momentum import RSIIndicator
+from bot.config import MATRIX
 
-matrix = {
-    "2000": ["MSFT", "GE", "CSCO", "WMT", "XOM", "INTC", "C", "PFE", "NOK", "TM", "DTE", "HD", "ORCL", "MRK"],
-    "2005": ["XOM", "GE", "MSFT", "C", "BP", "SHEL", "TM", "WMT", "IBM", "JNJ", "COP", "INTC", "AIG", "PFE"],
-    "2010": ["XOM", "MSFT", "AAPL", "GE", "WMT", "BRK-B", "PG", "BAC", "JNJ", "WFC", "GOOG", "KO", "CVX", "PFE", "CSCO"],
-    "2015": ["AAPL", "GOOG", "XOM", "BRK-B", "MSFT", "WFC", "JNJ", "NVS", "WMT", "GE", "PG", "JPM", "CVX", "ORCL", "VZ"],
-    "2020": ["AAPL", "MSFT", "AMZN", "GOOG", "META", "BRK-B", "TSM", "ASML", "TSLA", "BABA", "JPM", "V", "MA", "UNH", "HD"],
-    # "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZN", "META", "BRK-B", "LLY", "AVGO", "TSM", "NVO", "JPM"],
-}
 
 async def get_date(year):
     year_map = {  
@@ -56,7 +49,7 @@ async def get_data():
     folder_path = "data"
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
-    for year in matrix:
+    for year in MATRIX:
         year_folder = f"{folder_path}/{year}"
         if not os.path.exists(year_folder):
             os.makedirs(year_folder)
@@ -64,7 +57,7 @@ async def get_data():
             os.makedirs(f"{year_folder}/rsi")
         if not os.path.exists(f"{year_folder}/close_price"):
             os.makedirs(f"{year_folder}/close_price")
-        for ticker in matrix[year]:
+        for ticker in MATRIX[year]:
             start_date, end_date = await get_date(f'{year}')
             start_date = start_date - timedelta(days=200)  # Extraer datos adicionales si es necesario
             start_date = start_date.strftime("%Y-%m-%d")

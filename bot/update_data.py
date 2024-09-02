@@ -4,16 +4,16 @@ import yfinance as yf
 import asyncio
 from ta.momentum import RSIIndicator
 from datetime import datetime
-from bot import config
+from bot.config import MATRIX
 
 
 async def update_data(updated_data, is_ticker_updated):
     print("Here we're going to update data every day")
-    year = list(config.matrix.keys())[-1]
+    year = list(MATRIX.keys())[-1]
     folder_path = "data"
     print(is_ticker_updated)
     
-    for ticker in config.matrix[year]:
+    for ticker in MATRIX[year]:
         if not is_ticker_updated[ticker]:
             print(ticker)
             data = yf.download(ticker, period="6mo")

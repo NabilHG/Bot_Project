@@ -11,7 +11,7 @@ DB_URL = getenv("DB_URL")
 
 TORTOISE_ORM = {
     "connections": {
-        "default": "mysql://root:1234@127.0.0.1:3306/bot_rsi"  # Ajusta esto según tu configuración
+        "default": f'mysql://{getenv("MYSQL_USER")}:{getenv("MYSQL_USER_PASSWORD")}@127.0.0.1:3306/{getenv("MYSQL_DATABASE")}'  # Ajusta esto según tu configuración
     },
     "apps": {
         "models": {
@@ -26,7 +26,7 @@ TORTOISE_ORM = {
 }
 
 #dict with all tickers
-matrix = {
+MATRIX = {
     "2000": ["MSFT", "GE", "CSCO", "WMT", "XOM", "INTC", "C", "PFE", "NOK", "TM", "DTE", "HD", "ORCL", "MRK"],
     "2005": ["XOM", "GE", "MSFT", "C", "BP", "SHEL", "TM", "WMT", "IBM", "JNJ", "COP", "INTC", "AIG", "PFE"],
     "2010": ["XOM", "MSFT", "AAPL", "GE", "WMT", "BRK-B", "PG", "BAC", "JNJ", "WFC", "GOOG", "KO", "CVX", "PFE", "CSCO"],

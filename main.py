@@ -2,7 +2,7 @@ import asyncio
 import logging
 import sys
 from aiogram.types import Message
-from bot import api, config, data_manager, update_data, analysis
+from bot import api, config, data_manager, update_data, analysis, seed_data
 from bot.handlers import backtest, info
 from datetime import datetime, time, timedelta
 from aiogram import Router
@@ -48,11 +48,11 @@ async def schedule_daily_task(updated_data, is_ticker_updated):
             await analysis_task()
         # Resetea el estado para la próxima actualización diaria
         updated_data[0] = False
-        is_ticker_updated = {ticker: False for ticker in config.matrix[list(config.matrix.keys())[-1]]}
+        is_ticker_updated = {ticker: False for ticker in config.MATRIX[list(config.MATRIX.keys())[-1]]}
 
 
 def is_analysis_time():
-    """Verifica si estamos en el periodo de mantenimiento (22:25 - 22:40)."""
+    # Verifica si estamos en el periodo de analisis (22:25 - 22:40)
     now = datetime.now().time()
     maintenance_start = time(22, 24)
     maintenance_end = time(22, 41)
@@ -64,13 +64,19 @@ async def handle_maintenance_message(message: Message):
     await message.reply("🚧 Mientras se hace el análisis diario el bot no puede recibir mensajes. Por favor, inténtalo más tarde. 🚧")
 
 async def main() -> None:
+    await analysis.analysis()
+
     # Inicializa la base de datos
     # await init_db() 
+
+    #Seed data base
+    # await seed_data.seed_data()
+    
     updated_data = [False]
-    is_ticker_updated = {ticker: False for ticker in config.matrix[list(config.matrix.keys())[-1]]}
+    is_ticker_updated = {ticker: False for ticker in config.MATRIX[list(config.MATRIX.keys())[-1]]}
 
     # Inicia la tarea diaria
-    asyncio.create_task(schedule_daily_task(updated_data, is_ticker_updated))
+    # asyncio.create_task(schedule_daily_task(updated_data, is_ticker_updated))
     
     # await analysis.analysis()
     
