@@ -64,13 +64,13 @@ async def handle_maintenance_message(message: Message):
     await message.reply("🚧 Mientras se hace el análisis diario el bot no puede recibir mensajes. Por favor, inténtalo más tarde. 🚧")
 
 async def main() -> None:
-    # await analysis.analysis()
+    await analysis.analysis()
 
     # Inicializa la base de datos
-    await init_db() 
+    # await init_db() 
 
     #Seed data base
-    await seed_data.seed_data()
+    # await seed_data.seed_data()
     
     updated_data = [False]
     is_ticker_updated = {ticker: False for ticker in config.MATRIX[list(config.MATRIX.keys())[-1]]}

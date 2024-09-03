@@ -102,32 +102,46 @@ async def analysis():
     print("Hello analysis")
 
     tickers = set(MATRIX[max(MATRIX.keys())])  # Obtener los tickers del último año
-    ticker_action = {ticker: None for ticker in tickers} # 0 = Nothing, 1 = buy, 2 = sell
     print(tickers)
     data_to_analize = await get_data()
-    print(data_to_analize)
+    # print(data_to_analize)
+    # Conecta la base de datos
+    await Tortoise.init(TORTOISE_ORM)    
+    # Borra y recrea las tablas (opcional, útil para reiniciar los datos)
+    await Tortoise.generate_schemas(safe=True)
+    try:  
+        # retriving all users
+        users = await models.User.all()  
+    except Exception as e:
+        print(f"Error fetching data: {e}")
 
     for ticker in tickers:
         ticker_data = data_to_analize.get(ticker, {})
-        
         rsi_value = ticker_data.get('RSI')
         close_value = ticker_data.get('CLOSE')
+        for user in users:
+            operation_open = await models.Operation.filter(ticker=ticker, status="open").first()
+            wallet = await models.Wallet.filter(user=user).first()
+            print(f'Wallet: {wallet}')
+            share = await models.Share.filter(ticker=ticker).first()
+            share_in_portfolio = await models.WalletShare.filter(wallet=wallet.id, share=share.id).exists()
+            if operation_open:
+                past_close_value = operation_open.capital_invested
+                print(f'Operation: {operation_open}, past close price: {past_close_value}')
+            else:
+                print("Not found")    
+            if rsi_value <= 25 and not share_in_portfolio:
+                print("buy")
+                # call await send_buy_alert()
+            elif rsi_value >= 70 and share_in_portfolio:
+                print("sell")
+                # call await send_sell_alert()
+            elif past_close_value > close_value * 0.9 and share_in_portfolio: # Verification if value has drop 10%
+                print("sell loss")
+                # call await send_buy_alert()
+    
+    return
 
-        if rsi_value <= 25:
-            ticker_action[ticker] = 1
-        elif rsi_value >= 70:
-            ticker_action[ticker] = 2
-        elif rsi_value: # Verification if value has drop 10%
-            '''TODO
-                add new column to operations named status to see if an operation is open or closed
-                do select to get the only open operation for this ticker
-                verify if value has drop 10%
-            '''
-            pass
-        else:
-            ticker_action[ticker] = 0
-
-    print(ticker_action)
     
 
     

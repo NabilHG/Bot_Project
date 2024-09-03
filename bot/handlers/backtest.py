@@ -3,6 +3,8 @@ from aiogram.types import Message
 from aiogram.filters import Command
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+import matplotlib.pyplot as plt
+import seaborn as sns
 import os
 import json
 import pandas as pd
@@ -96,6 +98,37 @@ async def get_dataframe(rsi_data, close_data):
     # Opcional: Eliminar filas donde todos los valores sean NaN en df
     df_clean = df.dropna(how='all')
     return df_clean
+
+async def get_img(df_portfolio_tracking):
+    # Aplicar un estilo de seaborn
+    sns.set_theme(style="whitegrid")
+
+    # Crear la figura
+    plt.figure(figsize=(12, 8))
+
+    # Trazar la curva de equity
+    plt.plot(df_portfolio_tracking["Fecha"], df_portfolio_tracking["Portfolio Value"], 
+            label='Valor del Portafolio', color='darkblue', linewidth=2)
+
+    # Añadir título y etiquetas
+    plt.title('Valor del portfolio', fontsize=16, fontweight='bold')
+    plt.xlabel('Fecha', fontsize=14)
+    plt.ylabel('Valor', fontsize=14)
+
+
+    # Añadir una leyenda
+    plt.legend(fontsize=12)
+
+    # Añadir una cuadrícula
+    plt.grid(True, linestyle='--', alpha=0.7)
+
+    # Ajustar márgenes para que las etiquetas no se corten
+    plt.tight_layout()
+
+    # Guardar la gráfica
+    plt.savefig('curva_de_equity.png', dpi=300)  # Mayor resolución
+    plt.close()
+    return
 
 async def simulation(df):
     # Inicializar el DataFrame para almacenar la fecha y el valor del portafolio
@@ -222,7 +255,8 @@ async def simulation(df):
     print(f"Maximum Drawdown: {max_drawdown}%")
     print(f"Profitability: {profitability}%")
     print(f"Average Hold Duration: {average_hold_duration} days")
-    print(f"Average Notifications per Month: {avg_notification}")
+    print(f"Average Notifications per Month: {avg_notification}") 
+    # await get_img(df_portfolio_tracking)      
     return str(max_drawdown), str(profitability), str(average_hold_duration), str(avg_notification)
 
 @router.message(Command(commands=["backtest", "BACKTEST", "Backtest", "BackTest"]))
