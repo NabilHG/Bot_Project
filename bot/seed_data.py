@@ -193,6 +193,11 @@ async def seed_data():
     share8 = await Share.create(ticker="ASML")
     share9 = await Share.create(ticker="TSLA")
     share10 = await Share.create(ticker="BABA")
+    share11 = await Share.create(ticker="JPM")
+    share12 = await Share.create(ticker="V")
+    share13 = await Share.create(ticker="MA")
+    share14 = await Share.create(ticker="UNH")
+    share15 = await Share.create(ticker="HD")
 
     # Seed WalletShares
     await WalletShare.create(wallet=wallet1, share=share1)

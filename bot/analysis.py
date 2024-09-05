@@ -1,5 +1,6 @@
 import os
 import json
+from aiogram.types import Message
 from tortoise import Tortoise
 from bot.config import TORTOISE_ORM, MATRIX
 from datetime import datetime
@@ -52,57 +53,58 @@ async def get_data():
     combined_data = {}
     data_close_price = await load_data_to_analize("data", "close_price", "CLOSE")
     data_close_rsi = await load_data_to_analize("data", "rsi", "RSI")
-    # print(f'Close: {data_close_price}')
-    # print(f' RSI: {data_close_rsi}')
 
-    # Iterar sobre los tickers de data_close_price para agregar los valores CLOSE y RSI
     for ticker, close_data in data_close_price.items():
-        close_date, close_value = list(close_data.items())[0]  # Extraer la fecha y el valor de CLOSE
+        close_date, close_value = list(close_data.items())[0]
 
-        # Inicializar el diccionario del ticker con el valor de CLOSE
         combined_data[ticker] = {'CLOSE': close_value}
 
-        # Si el ticker también está en data_close_rsi, agregar su valor RSI
         if ticker in data_close_rsi:
             rsi_data = data_close_rsi[ticker]
-            rsi_date, rsi_value = list(rsi_data.items())[0]  # Extraer la fecha y el valor de RSI
+            rsi_date, rsi_value = list(rsi_data.items())[0] 
 
-            # Verificar que las fechas coincidan o simplemente asignar el valor de RSI
-            # Aquí asumimos que las fechas coinciden ya que son del mismo día
             combined_data[ticker]['RSI'] = rsi_value
 
     return combined_data
 
-async def def_action():
-    pass
-    # Conecta la base de datos
-    # await Tortoise.init(TORTOISE_ORM)    
-    # # Borra y recrea las tablas (opcional, útil para reiniciar los datos)
-    # await Tortoise.generate_schemas(safe=True)
+async def send_buy_alert(bot, user, ticker, close_value):
+    user_id = 7257826638
+    # user_id = user.id
 
-    # try:  
-    #     # retriving all users and tickers
-    #     users = await models.User.all()  
-    #     shares = await models.Share.all()
-    # except Exception as e:
-    #     print(f"Error fetching data: {e}")
+    msg = '🚨 <b>Alerta de Compra</b> 🚨\n\n' + f'Ticker: <b>{ticker}</b>\n' + f"Valor de Cierre: <b>{round(close_value,2)}</b>"
 
+    try:
+        await bot.send_message(user_id, msg, parse_mode='HTML')
+    except Exception as e:
+        print(f"Ocurrió un error al intentar enviar el mensaje: {e}")
+
+    operation = models.Operation(ticker=ticker,status='open')
+
+    return
+
+async def send_sell_alert(bot, user, ticker, close_value, operation_open,  type):
+    user_id = 7257826638
+    # user_id = user.id
+
+    text = 'Alerta de Venta por pérdidas'
+    if type == 'gain':
+        text = 'Alerta de Venta por con beneficios'
+
+    msg = f'🚨 <b>{text}</b> 🚨\n\n' + f'Ticker: <b>{ticker}</b>\n' + f"Valor de Cierre: <b>{round(close_value,2)}</b>"
+
+    try:
+        await bot.send_message(user_id, msg, parse_mode='HTML')
+    except Exception as e:
+        print(f"Ocurrió un error al intentar enviar el mensaje: {e}")
     
-    # for share in shares:
-        
-    #     with open(file_path, "r") as file:
-    #         data = json.load(file)
+    operation_open.status= 'close'
+    operation_open.sell_date = datetime.now()
 
-
-    # for user in users:
-    #     print(f"User ID: {user.id}, Name: {user.name}, Created At: {user.register_date}")
-
-
-async def analysis():
+    return
+async def analysis(bot):
     print("Hello analysis")
 
     tickers = set(MATRIX[max(MATRIX.keys())])  # Obtener los tickers del último año
-    print(tickers)
     data_to_analize = await get_data()
     # print(data_to_analize)
     # Conecta la base de datos
@@ -119,26 +121,29 @@ async def analysis():
         ticker_data = data_to_analize.get(ticker, {})
         rsi_value = ticker_data.get('RSI')
         close_value = ticker_data.get('CLOSE')
+        print(ticker)
         for user in users:
             operation_open = await models.Operation.filter(ticker=ticker, status="open").first()
             wallet = await models.Wallet.filter(user=user).first()
-            print(f'Wallet: {wallet}')
+            a = await wallet.user
+            print(f'Wallet from: {a.name}')
             share = await models.Share.filter(ticker=ticker).first()
             share_in_portfolio = await models.WalletShare.filter(wallet=wallet.id, share=share.id).exists()
             if operation_open:
                 past_close_value = operation_open.capital_invested
-                print(f'Operation: {operation_open}, past close price: {past_close_value}')
+                print(f'Operation: {operation_open.ticker}, past close price: {past_close_value}, status: {operation_open.status}')
+                print(f'Cuerrent close: {close_value}')
+                if past_close_value > close_value * 0.9 and share_in_portfolio: # Verification if value has drop 10%
+                    print("sell loss")
+                    await send_sell_alert(bot, user, ticker, close_value, operation_open,  "loss")             
             else:
                 print("Not found")    
             if rsi_value <= 25 and not share_in_portfolio:
                 print("buy")
-                # call await send_buy_alert()
+                await send_buy_alert(bot, user, ticker, close_value)
             elif rsi_value >= 70 and share_in_portfolio:
                 print("sell")
-                # call await send_sell_alert()
-            elif past_close_value > close_value * 0.9 and share_in_portfolio: # Verification if value has drop 10%
-                print("sell loss")
-                # call await send_buy_alert()
+                await send_sell_alert(bot, user, ticker, close_value, operation_open,  "gain")             
     
     return
 

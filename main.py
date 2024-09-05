@@ -30,12 +30,12 @@ async def update_data_task(updated_data, is_ticker_updated):
     
     return updated_data
 
-async def analysis_task():
+async def analysis_task(bot):
     print("Analysis here")
-    await analysis.analysis()
+    await analysis.analysis(bot)
 
 
-async def schedule_daily_task(updated_data, is_ticker_updated):
+async def schedule_daily_task(updated_data, is_ticker_updated, bot):
     """Programa la actualización diaria a las 22:30."""
     while True:
         await wait_until(time(22, 30))  # Espera hasta las 22:30
@@ -45,7 +45,7 @@ async def schedule_daily_task(updated_data, is_ticker_updated):
         update_data = await update_data_task(updated_data, is_ticker_updated)
         print(f'Updated all data: {update_data}')
         if update_data:
-            await analysis_task()
+            await analysis_task(bot)
         # Resetea el estado para la próxima actualización diaria
         updated_data[0] = False
         is_ticker_updated = {ticker: False for ticker in config.MATRIX[list(config.MATRIX.keys())[-1]]}
@@ -64,8 +64,8 @@ async def handle_maintenance_message(message: Message):
     await message.reply("🚧 Mientras se hace el análisis diario el bot no puede recibir mensajes. Por favor, inténtalo más tarde. 🚧")
 
 async def main() -> None:
-    await analysis.analysis()
 
+    bot, dp = await api.init_bot(config.TELEGRAM_BOT_TOKEN)
     # Inicializa la base de datos
     # await init_db() 
 
@@ -76,12 +76,12 @@ async def main() -> None:
     is_ticker_updated = {ticker: False for ticker in config.MATRIX[list(config.MATRIX.keys())[-1]]}
 
     # Inicia la tarea diaria
-    # asyncio.create_task(schedule_daily_task(updated_data, is_ticker_updated))
+    # asyncio.create_task(schedule_daily_task(updated_data, is_ticker_updated, bot))
     
     # await analysis.analysis()
     
 
-    bot, dp = await api.init_bot(config.TELEGRAM_BOT_TOKEN)
+    await analysis.analysis(bot)
 
     # await data_manager.get_data()
 
