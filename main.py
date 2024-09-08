@@ -3,7 +3,7 @@ import logging
 import sys
 from aiogram.types import Message
 from bot import api, config, data_manager, update_data, analysis, seed_data
-from bot.handlers import backtest, info
+from bot.handlers import backtest, info, start
 from datetime import datetime, time, timedelta
 from aiogram import Router
 from bot.db import init_db
@@ -89,6 +89,7 @@ async def main() -> None:
 
     dp.include_router(backtest.router)
     dp.include_router(info.router)
+    dp.include_router(start.router)
 
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 

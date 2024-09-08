@@ -2,7 +2,7 @@ from tortoise import fields
 from tortoise.models import Model
 
 class Wallet(Model):
-    id = fields.IntField(pk=True)
+    id = fields.BigIntField(pk=True)
     initial_capital = fields.FloatField()
     current_capital = fields.FloatField(null=True)
     profit = fields.FloatField(null=True)

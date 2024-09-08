@@ -15,7 +15,7 @@ async def seed_data():
         name="Juan Pérez",
         username="juanperez",
         phone="123456789",
-        invesestor_profile=1,
+        investor_profile=1,
         is_admin=True
     )
 
@@ -23,7 +23,7 @@ async def seed_data():
         name="Ana García",
         username="anagarcia",
         phone="987654321",
-        invesestor_profile=2,
+        investor_profile=2,
         is_admin=False
     )
 
@@ -31,7 +31,7 @@ async def seed_data():
         name="Pepe García",
         username="pepegarcia",
         phone="987654321",
-        invesestor_profile=3,
+        investor_profile=3,
         is_admin=False
     )
 
@@ -39,7 +39,7 @@ async def seed_data():
         name="Man García",
         username="mangarcia",
         phone="987654321",
-        invesestor_profile=1,
+        investor_profile=1,
         is_admin=False
     )
 
@@ -47,7 +47,7 @@ async def seed_data():
         name="Won García",
         username="wongarcia",
         phone="987654321",
-        invesestor_profile=1,
+        investor_profile=1,
         is_admin=False
     )
 
@@ -55,7 +55,7 @@ async def seed_data():
         name="Won2 García",
         username="wongarcia",
         phone="987654321",
-        invesestor_profile=2,
+        investor_profile=2,
         is_admin=True
     )
 
@@ -63,7 +63,7 @@ async def seed_data():
         name="Won3 García",
         username="wongarcia",
         phone="987654321",
-        invesestor_profile=1,
+        investor_profile=1,
         is_admin=False
     )
 
@@ -71,7 +71,7 @@ async def seed_data():
         name="Won4 García",
         username="wongarcia",
         phone="987654321",
-        invesestor_profile=3,
+        investor_profile=3,
         is_admin=False
     )
 
@@ -79,7 +79,7 @@ async def seed_data():
         name="Won5 García",
         username="wongarcia",
         phone="987654321",
-        invesestor_profile=3,
+        investor_profile=3,
         is_admin=False
     )
 
@@ -87,7 +87,7 @@ async def seed_data():
         name="Won6 García",
         username="wongarcia",
         phone="987654321",
-        invesestor_profile=3,
+        investor_profile=3,
         is_admin=True
     )
 

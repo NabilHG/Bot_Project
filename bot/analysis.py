@@ -67,7 +67,7 @@ async def get_data():
 
     return combined_data
 
-async def send_buy_alert(bot, user, ticker, close_value):
+async def send_buy_alert(bot, wallet, ticker, close_value):
     user_id = 7257826638
     # user_id = user.id
 
@@ -78,8 +78,9 @@ async def send_buy_alert(bot, user, ticker, close_value):
     except Exception as e:
         print(f"Ocurrió un error al intentar enviar el mensaje: {e}")
 
-    operation = models.Operation(ticker=ticker,status='open')
+    operation = models.Operation(ticker=ticker,status='open', buy_date=datetime.now(), wallet_id=wallet.id)
 
+    
     return
 
 async def send_sell_alert(bot, user, ticker, close_value, operation_open,  type):
@@ -100,7 +101,14 @@ async def send_sell_alert(bot, user, ticker, close_value, operation_open,  type)
     operation_open.status= 'close'
     operation_open.sell_date = datetime.now()
 
+    # Guardar los cambios en la base de datos
+    try:
+        await operation_open.save()  
+    except Exception as db_error:
+        print(f"Ocurrió un error al guardar en la base de datos: {db_error}")
+
     return
+
 async def analysis(bot):
     print("Hello analysis")
 
@@ -123,10 +131,11 @@ async def analysis(bot):
         close_value = ticker_data.get('CLOSE')
         print(ticker)
         for user in users:
-            operation_open = await models.Operation.filter(ticker=ticker, status="open").first()
             wallet = await models.Wallet.filter(user=user).first()
+            operation_open = await models.Operation.filter(ticker=ticker, status="open", wallet_id=wallet.id).first()
             a = await wallet.user
             print(f'Wallet from: {a.name}')
+            print(f'Wallet id: {wallet.id}')
             share = await models.Share.filter(ticker=ticker).first()
             share_in_portfolio = await models.WalletShare.filter(wallet=wallet.id, share=share.id).exists()
             if operation_open:
@@ -140,7 +149,7 @@ async def analysis(bot):
                 print("Not found")    
             if rsi_value <= 25 and not share_in_portfolio:
                 print("buy")
-                await send_buy_alert(bot, user, ticker, close_value)
+                await send_buy_alert(bot, wallet, ticker, close_value)
             elif rsi_value >= 70 and share_in_portfolio:
                 print("sell")
                 await send_sell_alert(bot, user, ticker, close_value, operation_open,  "gain")             

@@ -9,7 +9,8 @@ router = Router()
 async def analysis_handler(message: Message):
     # user_id = message.from_user.id  # Obtén el ID del usuario
     # print(user_id)
-    chat_type = message.chat.type
-    print(chat_type)
+    a = message.from_user.first_name    
+    b = message.from_user.last_name    
+    print(a, b)
     msg = Text(Bold('Info here:') ,"Explain what the bot does and which commands are avaliable")
     await message.answer(**msg.as_kwargs())

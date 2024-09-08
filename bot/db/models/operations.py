@@ -2,7 +2,7 @@ from tortoise import fields
 from tortoise.models import Model
 
 class Operation(Model):
-    id = fields.IntField(pk=True)
+    id = fields.BigIntField(pk=True)
     ticker = fields.CharField(max_length=10)
     buy_date = fields.DatetimeField()
     sell_date = fields.DatetimeField(null=True)

@@ -2,7 +2,7 @@ from tortoise import fields
 from tortoise.models import Model
 
 class WalletShare(Model):
-    id = fields.IntField(pk=True)
+    id = fields.BigIntField(pk=True)
     wallet = fields.ForeignKeyField('models.Wallet', related_name='wallet_share', on_delete=fields.CASCADE)
     share = fields.ForeignKeyField('models.Share', related_name='wallet_share', on_delete=fields.CASCADE)
 
