@@ -77,10 +77,19 @@ async def send_buy_alert(bot, wallet, ticker, close_value):
         await bot.send_message(user_id, msg, parse_mode='HTML')
     except Exception as e:
         print(f"Ocurrió un error al intentar enviar el mensaje: {e}")
+    capital_invested = 1
+    operation = await models.Operation.create(ticker=ticker,status='open', buy_date=datetime.now(), capital_invested=capital_invested, wallet_id=wallet.id)
 
-    operation = models.Operation(ticker=ticker,status='open', buy_date=datetime.now(), wallet_id=wallet.id)
+    '''TODO
+        Establish relationship wallet-share
+    '''
 
-    
+    # Guardar los cambios en la base de datos
+    try:
+        await operation.save()
+    except Exception as db_error:
+        print(f"Ocurrió un error al guardar en la base de datos: {db_error}")
+
     return
 
 async def send_sell_alert(bot, user, ticker, close_value, operation_open,  type):
@@ -100,6 +109,10 @@ async def send_sell_alert(bot, user, ticker, close_value, operation_open,  type)
     
     operation_open.status= 'close'
     operation_open.sell_date = datetime.now()
+
+    '''TODO
+        Unestablish relationship wallet-share
+    '''
 
     # Guardar los cambios en la base de datos
     try:
@@ -146,9 +159,11 @@ async def analysis(bot):
                     print("sell loss")
                     await send_sell_alert(bot, user, ticker, close_value, operation_open,  "loss")             
             else:
-                print("Not found")    
+                print("Not found") 
+
             if rsi_value <= 25 and not share_in_portfolio:
                 print("buy")
+                print(f'Share in portfolio: {share_in_portfolio}')   
                 await send_buy_alert(bot, wallet, ticker, close_value)
             elif rsi_value >= 70 and share_in_portfolio:
                 print("sell")

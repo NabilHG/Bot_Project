@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import Command
-from bot.db.models import User
+from bot.db.models import User, Wallet
 from bot.config import TORTOISE_ORM
 from tortoise import Tortoise
 from tortoise.exceptions import DoesNotExist
@@ -118,6 +118,10 @@ async def process_investor_profile(message: Message, state: FSMContext):
             investor_profile=investor_profile,
             is_admin=True
         )
+        wallet = await Wallet.create(
+            initial_capital = data['capital'],
+            user_id = user.id
+        )
         await message.answer("Usuario registrado exitosamente.")
     except Exception as e:
         await message.answer(f"Error al registrar el usuario: {e}")
@@ -127,6 +131,7 @@ async def process_investor_profile(message: Message, state: FSMContext):
     # Guardar los cambios en la base de datos
     try:
         await user.save()  
+        await wallet.save()  
     except Exception as db_error:
         print(f"Ocurrió un error al guardar en la base de datos: {db_error}")
     
