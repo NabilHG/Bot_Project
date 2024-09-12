@@ -27,8 +27,7 @@ async def send_welcome(message: Message, state: FSMContext):
     user_id = message.from_user.id
 
     try:
-        # Intenta obtener el usuario con el ID proporcionado
-        existing_user = await User.get(id=user_id)
+        await User.get(id=user_id)
         # Si llega aquí, el usuario ya existe
         await message.reply("Ya estás registrado. No es necesario volver a registrarte.")
     except DoesNotExist:

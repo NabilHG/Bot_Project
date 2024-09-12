@@ -1,6 +1,5 @@
 import os
 import json
-from aiogram.types import Message
 from tortoise import Tortoise
 from bot.config import TORTOISE_ORM, MATRIX
 from datetime import datetime
@@ -92,7 +91,7 @@ async def send_buy_alert(bot, wallet, ticker, close_value):
 
     return
 
-async def send_sell_alert(bot, user, ticker, close_value, operation_open,  type):
+async def send_sell_alert(bot, user, wallet, share, close_value, operation_open, type):
     user_id = 7257826638
     # user_id = user.id
 
@@ -100,7 +99,7 @@ async def send_sell_alert(bot, user, ticker, close_value, operation_open,  type)
     if type == 'gain':
         text = 'Alerta de Venta por con beneficios'
 
-    msg = f'🚨 <b>{text}</b> 🚨\n\n' + f'Ticker: <b>{ticker}</b>\n' + f"Valor de Cierre: <b>{round(close_value,2)}</b>"
+    msg = f'🚨 <b>{text}</b> 🚨\n\n' + f'Ticker: <b>{share.ticker}</b>\n' + f"Valor de Cierre: <b>{round(close_value,2)}</b>"
 
     try:
         await bot.send_message(user_id, msg, parse_mode='HTML')
@@ -110,9 +109,7 @@ async def send_sell_alert(bot, user, ticker, close_value, operation_open,  type)
     operation_open.status= 'close'
     operation_open.sell_date = datetime.now()
 
-    '''TODO
-        Unestablish relationship wallet-share
-    '''
+    await models.WalletShare.filter(wallet=wallet.id, share=share.id).delete()
 
     # Guardar los cambios en la base de datos
     try:
@@ -122,7 +119,7 @@ async def send_sell_alert(bot, user, ticker, close_value, operation_open,  type)
 
     return
 
-async def analysis(bot):
+async def analysis(bot, state):
     print("Hello analysis")
 
     tickers = set(MATRIX[max(MATRIX.keys())])  # Obtener los tickers del último año
@@ -157,17 +154,17 @@ async def analysis(bot):
                 print(f'Cuerrent close: {close_value}')
                 if past_close_value > close_value * 0.9 and share_in_portfolio: # Verification if value has drop 10%
                     print("sell loss")
-                    await send_sell_alert(bot, user, ticker, close_value, operation_open,  "loss")             
+                    await send_sell_alert(bot, user, wallet, share, close_value, operation_open,  "loss")             
             else:
                 print("Not found") 
 
             if rsi_value <= 25 and not share_in_portfolio:
                 print("buy")
                 print(f'Share in portfolio: {share_in_portfolio}')   
-                await send_buy_alert(bot, wallet, ticker, close_value)
+                await send_buy_alert(bot, user, wallet, share, close_value, state)
             elif rsi_value >= 70 and share_in_portfolio:
                 print("sell")
-                await send_sell_alert(bot, user, ticker, close_value, operation_open,  "gain")             
+                await send_sell_alert(bot, user, wallet, share, close_value, operation_open,  "gain")             
     
     return
 

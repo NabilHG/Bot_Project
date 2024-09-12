@@ -12,6 +12,7 @@ async def seed_data():
 
     # Seed Users
     user1 = await User.create(
+        id=1,
         name="Juan Pérez",
         username="juanperez",
         phone="123456789",
@@ -20,6 +21,7 @@ async def seed_data():
     )
 
     user2 = await User.create(
+        id=2,
         name="Ana García",
         username="anagarcia",
         phone="987654321",
@@ -28,6 +30,7 @@ async def seed_data():
     )
 
     user3 = await User.create(
+        id=3,
         name="Pepe García",
         username="pepegarcia",
         phone="987654321",
@@ -36,6 +39,7 @@ async def seed_data():
     )
 
     user4 = await User.create(
+        id=4,
         name="Man García",
         username="mangarcia",
         phone="987654321",
@@ -44,6 +48,7 @@ async def seed_data():
     )
 
     user5 = await User.create(
+        id=5,
         name="Won García",
         username="wongarcia",
         phone="987654321",
@@ -52,6 +57,7 @@ async def seed_data():
     )
 
     user6 = await User.create(
+        id=6,
         name="Won2 García",
         username="wongarcia",
         phone="987654321",
@@ -60,6 +66,7 @@ async def seed_data():
     )
 
     user7 = await User.create(
+        id=7,
         name="Won3 García",
         username="wongarcia",
         phone="987654321",
@@ -68,6 +75,7 @@ async def seed_data():
     )
 
     user8 = await User.create(
+        id=8,
         name="Won4 García",
         username="wongarcia",
         phone="987654321",
@@ -76,6 +84,7 @@ async def seed_data():
     )
 
     user9 = await User.create(
+        id=9,
         name="Won5 García",
         username="wongarcia",
         phone="987654321",
@@ -84,6 +93,7 @@ async def seed_data():
     )
 
     user10 = await User.create(
+        id=10,
         name="Won6 García",
         username="wongarcia",
         phone="987654321",
