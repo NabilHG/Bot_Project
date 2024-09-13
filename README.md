@@ -316,3 +316,7 @@ For aplying the migration
 ```bash
 aerich upgrade
 ```
+For returning to the past migration
+```bash
+aerich downgrade
+```

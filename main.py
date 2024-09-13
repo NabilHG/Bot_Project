@@ -79,7 +79,7 @@ async def main() -> None:
     # asyncio.create_task(schedule_daily_task(updated_data, is_ticker_updated, bot))
         
 
-    await analysis.analysis(bot)
+    await analysis.analysis(bot, dp)
 
     # await data_manager.get_data()
 

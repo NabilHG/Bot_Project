@@ -1,11 +1,18 @@
 import os
 import json
 from tortoise import Tortoise
-from bot.config import TORTOISE_ORM, MATRIX
-from datetime import datetime
+from tortoise.exceptions import IntegrityError
 from bot import config
+from bot.config import TORTOISE_ORM, MATRIX
 from bot.db import models
+from datetime import datetime
+from aiogram import Router
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.base import StorageKey
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 
+router = Router()
 async def load_data_to_analize(base_path, subfolder_name, type):
     data_dict = {}
     last_year = max(MATRIX.keys())  # Obtener el último año disponible
@@ -66,32 +73,126 @@ async def get_data():
 
     return combined_data
 
-async def send_buy_alert(bot, wallet, ticker, close_value):
-    user_id = 7257826638
-    # user_id = user.id
+# async def send_buy_alert(bot, wallet, ticker, close_value):
+#     user_id = 7257826638
+#     # user_id = user.id
 
-    msg = '🚨 <b>Alerta de Compra</b> 🚨\n\n' + f'Ticker: <b>{ticker}</b>\n' + f"Valor de Cierre: <b>{round(close_value,2)}</b>"
+#     msg = '🚨 <b>Alerta de Compra</b> 🚨\n\n' + f'Ticker: <b>{ticker}</b>\n' + f"Valor de Cierre: <b>{round(close_value,2)}</b>"
 
+#     try:
+#         await bot.send_message(user_id, msg, parse_mode='HTML')
+#     except Exception as e:
+#         print(f"Ocurrió un error al intentar enviar el mensaje: {e}")
+#     capital_invested = 1
+#     operation = await models.Operation.create(ticker=ticker,status='open', buy_date=datetime.now(), capital_invested=capital_invested, wallet_id=wallet.id)
+
+#     '''TODO
+#         Establish relationship wallet-share
+#     '''
+
+#     # Guardar los cambios en la base de datos
+#     try:
+#         await operation.save()
+#     except Exception as db_error:
+#         print(f"Ocurrió un error al guardar en la base de datos: {db_error}")
+
+#     return
+
+class BuyProcess(StatesGroup):
+    ask_to_buy = State()  
+    ask_amount = State() 
+
+
+yes_no_keyboard = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="Sí"), KeyboardButton(text="No")]
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True
+)
+
+# Función para enviar la alerta de compra y preguntar si desea comprar
+async def send_buy_alert(bot, state: FSMContext, user, wallet, share, close_value):
+    user_id = user.id
+    # Enviar alerta de compra
+    msg = (
+        '🚨 <b>Alerta de Compra</b> 🚨\n\n' +
+        f'Ticker: <b>{share.ticker}</b>\n' +
+        f"Valor de Cierre: <b>{round(close_value, 2)}</b>"
+    )
     try:
         await bot.send_message(user_id, msg, parse_mode='HTML')
+        await bot.send_message(user_id, "¿Deseas realizar la compra?", reply_markup=yes_no_keyboard)
+        print("QAA")
+        await state.set_state(BuyProcess.ask_to_buy)
+        print(f"Estado cambiado a {BuyProcess.ask_to_buy}")
     except Exception as e:
         print(f"Ocurrió un error al intentar enviar el mensaje: {e}")
-    capital_invested = 1
-    operation = await models.Operation.create(ticker=ticker,status='open', buy_date=datetime.now(), capital_invested=capital_invested, wallet_id=wallet.id)
+        await state.clear()
+        return
 
-    '''TODO
-        Establish relationship wallet-share
-    '''
+# Manejar la respuesta a la pregunta de si desea comprar
+@router.message(BuyProcess.ask_to_buy)
+async def ask_to_buy(message: Message, state: FSMContext):
+    print("res")
+    response = message.text.lower()
+    print(f'REsponse: {response}')
+    if response in ['sí', 'si']:
+        # Preguntar la cantidad a invertir
+        await message.answer("¿Qué cantidad deseas invertir?")
+        await state.set_state(BuyProcess.ask_amount)
+    elif response == 'no':
+        await message.answer("Operación cancelada.")
+        await state.clear()  # Resetear el estado
+    else:
+        await message.answer("Respuesta inválida. Por favor, responde con 'Sí' o 'No'.")
+        return
 
-    # Guardar los cambios en la base de datos
+# Manejar la respuesta de la cantidad a invertir
+@router.message(BuyProcess.ask_amount)
+async def ask_amount(message: Message, state: FSMContext, bot, user, wallet, share, close_value):
     try:
+        capital_invested = float(message.text)
+        if capital_invested <= 0:
+            await message.answer("La cantidad debe ser mayor a 0.")
+            await state.clear()
+            return
+    except ValueError:
+        await message.answer("Respuesta no válida.")
+        await state.clear()
+        return
+
+    # Guardar la compra en la base de datos
+    try:
+        operation = await models.Operation.create(
+            ticker=share.ticker,
+            status='open',
+            buy_date=datetime.now(),
+            capital_invested=capital_invested,
+            wallet_id=wallet.id
+        )
+
+        wallet_share = await models.WalletShare.create(
+            wallet=wallet.id,
+            share=share.id
+        )
+
+        # Guardar los cambios en la base de datos
         await operation.save()
-    except Exception as db_error:
+        await wallet_share.save()
+        await message.answer("Proceso guardado.")
+    except IntegrityError as db_error:
         print(f"Ocurrió un error al guardar en la base de datos: {db_error}")
 
-    return
+    await state.clear()
 
-async def send_sell_alert(bot, user, wallet, share, close_value, operation_open, type):
+
+
+
+
+
+
+async def send_sell_alert(bot, state, user, wallet, share, close_value, operation_open, type):
     user_id = 7257826638
     # user_id = user.id
 
@@ -119,11 +220,11 @@ async def send_sell_alert(bot, user, wallet, share, close_value, operation_open,
 
     return
 
-async def analysis(bot, state):
+async def analysis(bot, dp):
     print("Hello analysis")
 
     tickers = set(MATRIX[max(MATRIX.keys())])  # Obtener los tickers del último año
-    data_to_analize = await get_data()
+    data_to_analyze = await get_data()
     # print(data_to_analize)
     # Conecta la base de datos
     await Tortoise.init(TORTOISE_ORM)    
@@ -135,12 +236,19 @@ async def analysis(bot, state):
     except Exception as e:
         print(f"Error fetching data: {e}")
 
-    for ticker in tickers:
-        ticker_data = data_to_analize.get(ticker, {})
-        rsi_value = ticker_data.get('RSI')
-        close_value = ticker_data.get('CLOSE')
-        print(ticker)
-        for user in users:
+    for user in users:
+        # Crear FSMContext manualmente para el usuario
+        bot_info = await bot.get_me()
+
+        storage_key = StorageKey(bot_id=bot_info.id, chat_id=user.id, user_id=user.id)
+        state = FSMContext(storage=dp.storage, key=storage_key)
+
+        for ticker in tickers:
+            ticker_data = data_to_analyze.get(ticker, {})
+            rsi_value = ticker_data.get('RSI')
+            close_value = ticker_data.get('CLOSE')
+            print(ticker)
+            
             wallet = await models.Wallet.filter(user=user).first()
             operation_open = await models.Operation.filter(ticker=ticker, status="open", wallet_id=wallet.id).first()
             a = await wallet.user
@@ -148,23 +256,27 @@ async def analysis(bot, state):
             print(f'Wallet id: {wallet.id}')
             share = await models.Share.filter(ticker=ticker).first()
             share_in_portfolio = await models.WalletShare.filter(wallet=wallet.id, share=share.id).exists()
+
             if operation_open:
                 past_close_value = operation_open.capital_invested
                 print(f'Operation: {operation_open.ticker}, past close price: {past_close_value}, status: {operation_open.status}')
-                print(f'Cuerrent close: {close_value}')
-                if past_close_value > close_value * 0.9 and share_in_portfolio: # Verification if value has drop 10%
+                print(f'Current close: {close_value}')
+                if past_close_value > close_value * 0.9 and share_in_portfolio:  # Verifica si el valor ha caído un 10%
                     print("sell loss")
-                    await send_sell_alert(bot, user, wallet, share, close_value, operation_open,  "loss")             
+                    # await send_sell_alert(bot, state, user, wallet, share, close_value, operation_open, "loss")             
             else:
                 print("Not found") 
 
             if rsi_value <= 25 and not share_in_portfolio:
                 print("buy")
                 print(f'Share in portfolio: {share_in_portfolio}')   
-                await send_buy_alert(bot, user, wallet, share, close_value, state)
+                await send_buy_alert(bot, state, user, wallet, share, close_value)
             elif rsi_value >= 70 and share_in_portfolio:
                 print("sell")
-                await send_sell_alert(bot, user, wallet, share, close_value, operation_open,  "gain")             
+                await send_sell_alert(bot, state, user, wallet, share, close_value, operation_open, "gain")
+
+        # Limpiar el estado después del análisis si es necesario
+        await state.clear()
     
     return
 
