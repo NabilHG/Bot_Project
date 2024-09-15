@@ -18,9 +18,10 @@ class RegisterForm(StatesGroup):
     capital = State()
     investor_profile = State()
 
-# Manejador para el comando /start
+# Manejador para el comando /register
 @router.message(Command(commands=["register"]))
 async def send_welcome(message: Message, state: FSMContext):
+    print("OYE4")
     await Tortoise.init(TORTOISE_ORM)
 
     # Verifica si el usuario ya está registrado
@@ -39,6 +40,7 @@ async def send_welcome(message: Message, state: FSMContext):
 # Manejador para capturar el nombre o cómo quiere que se dirija el bot
 @router.message(RegisterForm.name)
 async def process_name(message: Message, state: FSMContext):
+    print("OYE5")
     if not message.text.isalpha():
         await message.answer("Por favor, ingresa un nombre válido (solo letras).")
         return  # No avanzamos de estado
@@ -48,6 +50,7 @@ async def process_name(message: Message, state: FSMContext):
 
 @router.message(RegisterForm.phone)
 async def process_phone(message: Message, state: FSMContext):
+    print("OYE6")
     if not (message.text.isdigit() and len(message.text) == 9):        
         await message.answer("Por favor, ingresa un número de teléfono válido (sin prefijo).")
         return  # No avanzamos de estado
@@ -58,6 +61,7 @@ async def process_phone(message: Message, state: FSMContext):
 # Manejador para capturar el capital inicial
 @router.message(RegisterForm.capital)
 async def process_capital(message: Message, state: FSMContext):
+    print("OYE7")
     try:
         capital = float(message.text)
         if capital <= 0:
@@ -85,6 +89,7 @@ async def process_capital(message: Message, state: FSMContext):
 # Manejador para capturar el perfil de inversor
 @router.message(RegisterForm.investor_profile)
 async def process_investor_profile(message: Message, state: FSMContext):
+    print("OYE8")
     valid_profiles = {"Conservador", "Medio", "Atrevido"}
     if message.text not in valid_profiles:
         await message.answer("Por favor, elige una opción válida (Conservador, Medio o Atrevido).")

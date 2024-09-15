@@ -7,6 +7,7 @@ router = Router()
 
 @router.message(Command(commands=["start", "help", "info"]))
 async def analysis_handler(message: Message):
+    print("OYE3")
     # user_id = message.from_user.id  # Obtén el ID del usuario
     # print(user_id)
     a = message.from_user.first_name    

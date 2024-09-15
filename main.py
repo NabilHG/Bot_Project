@@ -3,7 +3,7 @@ import logging
 import sys
 from aiogram.types import Message
 from bot import api, config, data_manager, update_data, analysis, seed_data
-from bot.handlers import backtest, info, start
+from bot.handlers import backtest, decline, info, start, buy, sell
 from datetime import datetime, time, timedelta
 from aiogram import Router
 from bot.db import init_db
@@ -35,6 +35,7 @@ async def analysis_task(bot):
     await analysis.analysis(bot)
 
 
+
 async def schedule_daily_task(updated_data, is_ticker_updated, bot):
     """Programa la actualización diaria a las 22:30."""
     while True:
@@ -58,9 +59,10 @@ def is_analysis_time():
     maintenance_end = time(22, 41)
     return maintenance_start <= now <= maintenance_end
 
-# Handler específico solo para tiempos de mantenimiento
+#Handler específico solo para tiempos de mantenimiento
 @router.message(lambda message: is_analysis_time())  # Se registra solo para tiempos de mantenimiento
 async def handle_maintenance_message(message: Message):
+    print("OYE1")
     await message.reply("🚧 Mientras se hace el análisis diario el bot no puede recibir mensajes. Por favor, inténtalo más tarde. 🚧")
 
 async def main() -> None:
@@ -79,15 +81,18 @@ async def main() -> None:
     # asyncio.create_task(schedule_daily_task(updated_data, is_ticker_updated, bot))
         
 
-    await analysis.analysis(bot, dp)
 
     # await data_manager.get_data()
 
     dp.include_router(router)
-
+    dp.include_router(analysis.router)
     dp.include_router(backtest.router)
     dp.include_router(info.router)
     dp.include_router(start.router)
+    dp.include_router(decline.router)
+    dp.include_router(buy.router)
+    dp.include_router(sell.router)
+    await analysis_task(bot)
 
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 

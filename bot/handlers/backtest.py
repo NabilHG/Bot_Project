@@ -261,6 +261,7 @@ async def simulation(df):
 
 @router.message(Command(commands=["backtest", "BACKTEST", "Backtest", "BackTest"]))
 async def backtest_handler(message: Message):
+    print("OYE2")
     max_drawdown, profitability, average_hold_duration, avg_notification = await calculate_maximum_drawdown_profit()
   
     msg = '🧪 BackTest 🧪\n\n' + f'🧮 Media de alertas mensuales: <b>{avg_notification}</b>\n' + f"🔹 Media de días que se mantiene una acción en cartera: <b>{average_hold_duration}</b>\n" + f'☠️ Maximum draw down: <b>{max_drawdown}%</b>\n' + f'💰 Rentabilidad: <b>{profitability}%</b>'
