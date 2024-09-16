@@ -229,7 +229,7 @@ async def seed_data():
         buy_date=datetime.now() - timedelta(days=60),
         sell_date=datetime.now() - timedelta(days=30),
         capital_invested=1500.0,
-        capital_gained=1600.0,
+        capital_retrived=1600.0,
         status="close",
         wallet=wallet1
     )
@@ -247,7 +247,7 @@ async def seed_data():
         buy_date=datetime.now() - timedelta(days=120),
         sell_date=datetime.now() - timedelta(days=90),
         capital_invested=3000.0,
-        capital_gained=3300.0,
+        capital_retrived=3300.0,
         status="close",
         wallet=wallet3
     )
@@ -257,7 +257,7 @@ async def seed_data():
         buy_date=datetime.now() - timedelta(days=75),
         sell_date=datetime.now() - timedelta(days=45),
         capital_invested=1800.0,
-        capital_gained=1900.0,
+        capital_retrived=1900.0,
         status="close",
         wallet=wallet3
     )
@@ -267,7 +267,7 @@ async def seed_data():
         buy_date=datetime.now() - timedelta(days=180),
         sell_date=datetime.now() - timedelta(days=150),
         capital_invested=3500.0,
-        capital_gained=3000.0,
+        capital_retrived=3000.0,
         status="close",
         wallet=wallet4
     )
@@ -285,7 +285,7 @@ async def seed_data():
         buy_date=datetime.now() - timedelta(days=150),
         sell_date=datetime.now() - timedelta(days=120),
         capital_invested=2500.0,
-        capital_gained=2200.0,
+        capital_retrived=2200.0,
         status="close",
         wallet=wallet4
     )
@@ -311,7 +311,7 @@ async def seed_data():
         buy_date=datetime.now() - timedelta(days=50),
         sell_date=datetime.now() - timedelta(days=25),
         capital_invested=1200.0,
-        capital_gained=1300.0,
+        capital_retrived=1300.0,
         status="close",
         wallet=wallet7
     )

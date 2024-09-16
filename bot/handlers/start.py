@@ -97,7 +97,7 @@ async def process_investor_profile(message: Message, state: FSMContext):
 
     await state.update_data(investor_profile=message.text)
 
-    profile_map = {"Conservador": 1, "Medio": 2, "Atrevido": 3}
+    profile_map = {"Conservador": 0.2, "Medio": 0.4, "Atrevido": 0.6}
     investor_profile = profile_map[message.text]
     
     first_name = message.from_user.first_name

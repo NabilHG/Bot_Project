@@ -5,9 +5,9 @@ from aiogram.filters import Command
 router = Router()
 
 
-@router.message(Command(commands=["no", "NO", "No", "nO"]))
+@router.message(Command(commands=["rechazar"]))
 async def ask_to_buy_handler(message: Message):
-    response = message.text
-    if response in ["no", "NO", "No", "nO"]:
-        await message.answer("Cancelando")
+    response = message.text.lower()
+    if response == '/rechazar':
+        await message.answer("Cancelado.")
 

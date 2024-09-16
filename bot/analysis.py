@@ -2,20 +2,38 @@ import os
 import json
 import asyncio
 from tortoise import Tortoise
-from tortoise.exceptions import IntegrityError
-from bot import config
 from bot.config import TORTOISE_ORM, MATRIX
 from bot.db import models
 from datetime import datetime
 from aiogram import Router
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.storage.base import StorageKey
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
-from aiogram.filters.state import StateFilter
-from aiogram.filters import Command
 
 router = Router()
+
+async def latest_close_price(ticker, base_dir):
+    # Buscar el ticker en el último año disponible en la matriz
+    for year in sorted(MATRIX.keys(), reverse=True):
+        if ticker in MATRIX[year]:
+            # Construir la ruta del archivo
+            file_path = os.path.join(base_dir, year, 'close_price', f'{ticker}.json')
+            
+            # Verificar si el archivo existe
+            if os.path.exists(file_path):
+                # Cargar el archivo JSON
+                with open(file_path, 'r') as file:
+                    data = json.load(file)
+                
+                # Obtener los valores de 'CLOSE'
+                close_data = data.get('CLOSE', {})
+                if close_data:
+                    # Devolver el último valor (el de la fecha más reciente)
+                    last_date = max(close_data.keys())
+                    return close_data[last_date]
+                else:
+                    print(f"No hay datos de 'CLOSE' para {ticker} en {year}")
+    
+    print(f"Ticker {ticker} no encontrado en ningún año")
+
+
 
 async def load_data_to_analize(base_path, subfolder_name, type):
     data_dict = {}
@@ -77,35 +95,6 @@ async def get_data():
 
     return combined_data
 
-
-async def send_sell_alert(bot, state, user, wallet, share, close_value, operation_open, type):
-    user_id = 7257826638
-    # user_id = user.id
-
-    text = 'Alerta de Venta por pérdidas'
-    if type == 'gain':
-        text = 'Alerta de Venta por con beneficios'
-
-    msg = f'🚨 <b>{text}</b> 🚨\n\n' + f'Ticker: <b>{share.ticker}</b>\n' + f"Valor de Cierre: <b>{round(close_value,2)}</b>"
-
-    try:
-        await bot.send_message(user_id, msg, parse_mode='HTML')
-    except Exception as e:
-        print(f"Ocurrió un error al intentar enviar el mensaje: {e}")
-    
-    operation_open.status= 'close'
-    operation_open.sell_date = datetime.now()
-
-    await models.WalletShare.filter(wallet=wallet.id, share=share.id).delete()
-
-    # Guardar los cambios en la base de datos
-    try:
-        await operation_open.save()  
-    except Exception as db_error:
-        print(f"Ocurrió un error al guardar en la base de datos: {db_error}")
-
-    return
-
 async def analyze_user_tickers(user, tickers, data_to_analyze, bot):
     try:
         wallet = await models.Wallet.filter(user=user).first()
@@ -136,8 +125,8 @@ async def analyze_user_tickers(user, tickers, data_to_analyze, bot):
 
             # Verificar si hay operaciones abiertas y procesar
             if operation_open:
-                past_close_value = operation_open.capital_invested
-                print(f"Open operation found for {ticker}, past close: {past_close_value}, current close: {close_value}")
+                past_close_value = operation_open.purchased_price
+                print(f"Open operation found for {ticker}, past purchased_price: {past_close_value}, current close: {close_value}")
                 
                 # Si la operación ha caído más del 10% y la acción está en el portafolio
                 if past_close_value > close_value * 0.9 and share_in_portfolio:
@@ -156,11 +145,14 @@ async def analyze_user_tickers(user, tickers, data_to_analyze, bot):
 
             # Generar alertas de compra/venta basadas en RSI
             if rsi_value <= 25 and not share_in_portfolio:
+                print("investor", user.investor_profile)
                 print(f'Buy alert for {ticker}')
                 msg = (
                     '🚨 <b>Alerta de compra</b> 🚨\n\n' +
                     f'Ticker: <b>{share.ticker}</b>\n' +
-                    f"Valor de Cierre: <b>{round(close_value, 2)}</b>"
+                    f"Valor de Cierre: <b>{round(close_value, 2)}€</b>\n" + 
+                    f'Según tu perfil de inversor deberías de invertir  <b>{round(wallet.initial_capital * user.investor_profile, 2)}€</b>'
+
                 )
                 try:
                     await bot.send_message(user.id, msg, parse_mode='HTML')
@@ -200,4 +192,3 @@ async def analysis(bot):
     # Procesar cada usuario en paralelo
     tasks = [analyze_user_tickers(user, tickers, data_to_analyze, bot) for user in users]
     await asyncio.gather(*tasks)
-
