@@ -124,9 +124,10 @@ async def process_investor_profile(message: Message, state: FSMContext):
         )
         wallet = await Wallet.create(
             initial_capital = data['capital'],
+            current_capital = data['capital'],
             user_id = user.id
         )
-        await message.answer("Usuario registrado exitosamente.")
+        await message.answer("Registrado exitosamente.")
     except Exception as e:
         await message.answer(f"Error al registrar el usuario: {e}")
 

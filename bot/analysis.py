@@ -137,7 +137,7 @@ async def analyze_user_tickers(user, tickers, data_to_analyze, bot):
                     )
                     try:
                         await bot.send_message(user.id, msg, parse_mode='HTML')
-                        await bot.send_message(user.id, "¿Deseas realizar la venta? (/venta ticker o /rechazar)")
+                        await bot.send_message(user.id, "¿Deseas realizar la venta? (/venta <b>ticker</b> o /rechazar)", parse_mode='HTML')
                     except Exception as e:
                         print(f"Error sending sell alert: {e}")                    
             else:
@@ -156,7 +156,7 @@ async def analyze_user_tickers(user, tickers, data_to_analyze, bot):
                 )
                 try:
                     await bot.send_message(user.id, msg, parse_mode='HTML')
-                    await bot.send_message(user.id, "¿Deseas realizar la compra? (/comprar ticker o /rechazar)")
+                    await bot.send_message(user.id, "¿Deseas realizar la compra? (/comprar <b>ticker</b> o /rechazar)", parse_mode='HTML')
                 except Exception as e:
                     print(f"Error sending buy alert: {e}")
                     
@@ -169,7 +169,7 @@ async def analyze_user_tickers(user, tickers, data_to_analyze, bot):
                 )
                 try:
                     await bot.send_message(user.id, msg, parse_mode='HTML')
-                    await bot.send_message(user.id, "¿Deseas realizar la venta? (/venta ticker o /rechazar)")
+                    await bot.send_message(user.id, "¿Deseas realizar la venta? (/venta <b>ticker</b> o /rechazar)", parse_mode='HTML')
                 except Exception as e:
                     print(f"Error sending sell alert: {e}")
     except Exception as e:

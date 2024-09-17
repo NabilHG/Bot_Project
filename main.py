@@ -3,7 +3,6 @@ import logging
 import sys
 from aiogram.types import Message
 from bot import api, config, data_manager, update_data, analysis, seed_data
-from bot.handlers import backtest, decline, info, start, buy, sell
 from datetime import datetime, time, timedelta
 from aiogram import Router
 from bot.db import init_db
@@ -84,14 +83,8 @@ async def main() -> None:
 
     # await data_manager.get_data()
 
-    dp.include_router(router)
-    dp.include_router(analysis.router)
-    dp.include_router(backtest.router)
-    dp.include_router(info.router)
-    dp.include_router(start.router)
-    dp.include_router(decline.router)
-    dp.include_router(buy.router)
-    dp.include_router(sell.router)
+    await api.init_routers(dp)
+
     await analysis_task(bot)
 
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)

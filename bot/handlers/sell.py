@@ -14,26 +14,14 @@ router = Router()
 class ProccesSellForm(StatesGroup):
     amount = State()
 
-async def proccess_sell(id, message, capital, ticker):
-    await Tortoise.init(TORTOISE_ORM)
-    await Tortoise.generate_schemas(safe=True)
+async def proccess_sell(id, message, capital, state):
+    data = await state.get_data()
+    wallet = data.get("wallet")
+    share = data.get("share")
 
-    try:
-        user = await models.User.filter(id=id).first()  # Obtener todos los usuarios
-    except Exception as e:
-        print(f"Error fetching users: {e}")
-    try:
-        wallet = await models.Wallet.filter(user_id=user.id).first()
-    except Exception as e:
-        print(e)
-    try:
-        share = await models.Share.filter(ticker=ticker).first()
-    except Exception as e:
-        print(e)
+    latest_close_price_value = round(await latest_close_price(share.ticker, 'data'), 2)
 
-    latest_close_price_value = round(await latest_close_price(ticker, 'data'), 2)
-
-    operation_open = await models.Operation.filter(ticker=ticker, status="open", wallet_id=wallet.id).first()
+    operation_open = await models.Operation.filter(ticker=share.ticker, status="open", wallet_id=wallet.id).first()
 
 
     operation_open.status= 'close'
@@ -56,9 +44,14 @@ async def proccess_sell(id, message, capital, ticker):
 
     # Calculando el porcentaje obtenido
     percentage_obtained = (operation_value / operation_open.capital_retrived) * 100
-    await message.answer(f"✅ <b>Venta guardada:</b>\n <b>{ticker}</b>, con precio de cierre <b>{latest_close_price_value}€</b>.\nResuletado de la operación <b>{percentage_obtained}%</b>", parse_mode='HTML')
+    await message.answer(f"✅ <b>Venta guardada:</b>\n <b>{share.ticker}</b>, con precio de cierre <b>{latest_close_price_value}€</b>.\nResuletado de la operación <b>{percentage_obtained}%</b>", parse_mode='HTML')
 
     return
+
+@router.message(Command(commands=["rechazar"]), ProccesSellForm.amount)
+async def cancel_sell_handler(message: Message, state: FSMContext):
+    await message.answer("Operación cancelada.")
+    await state.clear()  # Limpiar el estado para cancelar la operación
 
 @router.message(Command(commands=["vender"]))
 async def ask_to_sell_handler(message: Message, state: FSMContext):
@@ -67,31 +60,47 @@ async def ask_to_sell_handler(message: Message, state: FSMContext):
     if not len(args) > 1:
         await message.reply("Por favor, proporciona un valor después del comando.")
         return
-
+    if not ticker in MATRIX[max(MATRIX.keys())]:
+        await message.reply("Por favor, proporciona un ticker correcto.")
+        return
+    
     ticker = args[1].upper()
-    if args[0] == "/vender" and ticker in MATRIX[max(MATRIX.keys())]:
+    await Tortoise.init(TORTOISE_ORM)
+    await Tortoise.generate_schemas(safe=True)
+
+    id = message.from_user.id
+    try:
+        user = await models.User.filter(id=id).first()  
+        wallet = await models.Wallet.filter(user_id=user.id).first()
+        share = await models.Share.filter(ticker=ticker).first()
+        operation_open = await models.Operation.filter(ticker=ticker, status="open", wallet_id=wallet.id).first()
+    except Exception as e:
+        print(f"Error fetching data: {e}")
+        return
+    
+
+    if args[0] == "/vender":
         # Guardar el valor en el FSMContext
-        await state.update_data(ticker=ticker)
+        await state.update_data(wallet=wallet)
+        await state.update_data(share=share)
+        await state.update_data(operation=operation_open)
 
         await message.answer("¿Qué cantidad deseas vender?")
         await state.set_state(ProccesSellForm.amount)
 
-@router.message(Command(commands=["rechazar"]), ProccesSellForm.amount)
-async def cancel_sell_handler(message: Message, state: FSMContext):
-    await message.answer("Operación cancelada.")
-    await state.clear()  # Limpiar el estado para cancelar la operación
-
 @router.message(ProccesSellForm.amount)
 async def ask_amount_to_sell(message: Message, state: FSMContext):
-    id = message.from_user.id
-    user_data = await state.get_data()
-    ticker = user_data.get("ticker")  # Obtener el valor
-
+    data = await state.get_data()
+    operation = data.get("operation")
     try:
         capital = float(message.text)
         if capital > 0:
-            await proccess_sell(id, message, capital, ticker)
-            await state.clear()  # Limpiar el estado después de completar la compra
+            if operation.capital_invested >= capital:
+                await proccess_sell(message, capital, state)
+                await state.clear()  # Limpiar el estado después de completar la compra
+            else:
+                await message.answer(f"Por favor, ingresa una cantidad <b>menor o igual</b> al capital que invertiste (<b>{operation.capital_invested}€</b>)", parse_mode='HTML')
+                return
         else:
             await message.answer("Por favor, ingresa una cantidad válida de capital.")
             return
