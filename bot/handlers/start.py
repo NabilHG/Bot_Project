@@ -125,6 +125,7 @@ async def process_investor_profile(message: Message, state: FSMContext):
         wallet = await Wallet.create(
             initial_capital = data['capital'],
             current_capital = data['capital'],
+            gain_capital = data['capital'],
             user_id = user.id,
             profit=0,
             max_drawdown=0,

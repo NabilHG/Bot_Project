@@ -5,6 +5,7 @@ class Wallet(Model):
     id = fields.BigIntField(pk=True)
     initial_capital = fields.FloatField()
     current_capital = fields.FloatField(null=True)
+    gain_capital = fields.FloatField(null=True)
     profit = fields.FloatField(null=True)
     max_drawdown = fields.FloatField(null=True)
     peak_capital = fields.FloatField(null=True) 
