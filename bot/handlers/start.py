@@ -19,7 +19,7 @@ class RegisterForm(StatesGroup):
     investor_profile = State()
 
 # Manejador para el comando /register
-@router.message(Command(commands=["register"]))
+@router.message(Command(commands=["registro"]))
 async def send_welcome(message: Message, state: FSMContext):
     print("OYE4")
     await Tortoise.init(TORTOISE_ORM)
@@ -125,9 +125,12 @@ async def process_investor_profile(message: Message, state: FSMContext):
         wallet = await Wallet.create(
             initial_capital = data['capital'],
             current_capital = data['capital'],
-            user_id = user.id
+            user_id = user.id,
+            profit=0,
+            max_drawdown=0,
+            peak_capital=data['capital'],
+            number_of_operations = 0
         )
-        await message.answer("Registrado exitosamente.")
     except Exception as e:
         await message.answer(f"Error al registrar el usuario: {e}")
 

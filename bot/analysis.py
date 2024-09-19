@@ -140,11 +140,8 @@ async def analyze_user_tickers(user, tickers, data_to_analyze, bot):
                         await bot.send_message(user.id, "¿Deseas realizar la venta? (/venta <b>ticker</b> o /rechazar)", parse_mode='HTML')
                     except Exception as e:
                         print(f"Error sending sell alert: {e}")                    
-            else:
-                print(f"No open operation found for {ticker}")
 
-            # Generar alertas de compra/venta basadas en RSI
-            if rsi_value <= 25 and not share_in_portfolio:
+            elif rsi_value <= 25 and not share_in_portfolio:
                 print("investor", user.investor_profile)
                 print(f'Buy alert for {ticker}')
                 msg = (

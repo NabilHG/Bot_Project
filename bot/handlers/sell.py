@@ -14,7 +14,7 @@ router = Router()
 class ProccesSellForm(StatesGroup):
     amount = State()
 
-async def proccess_sell(id, message, capital, state):
+async def proccess_sell(message, capital, state):
     data = await state.get_data()
     wallet = data.get("wallet")
     share = data.get("share")
@@ -23,11 +23,9 @@ async def proccess_sell(id, message, capital, state):
 
     operation_open = await models.Operation.filter(ticker=share.ticker, status="open", wallet_id=wallet.id).first()
 
-
-    operation_open.status= 'close'
+    operation_open.status = 'close'
     operation_open.sell_date = datetime.now()
     operation_open.capital_retrived = capital
-
 
     await models.WalletShare.filter(wallet=wallet.id, share=share.id).delete()
 
@@ -37,14 +35,33 @@ async def proccess_sell(id, message, capital, state):
     except Exception as db_error:
         print(f"Ocurrió un error al guardar en la base de datos: {db_error}")
 
-    '''TODO'''
-    #Calculate gain/loss percent and how this operations impacted to the wallet (recalculate profit and max drawdown)
-
+    # Calculando el valor de la operación
     operation_value = operation_open.capital_retrived - operation_open.capital_invested
 
-    # Calculando el porcentaje obtenido
-    percentage_obtained = (operation_value / operation_open.capital_retrived) * 100
-    await message.answer(f"✅ <b>Venta guardada:</b>\n <b>{share.ticker}</b>, con precio de cierre <b>{latest_close_price_value}€</b>.\nResuletado de la operación <b>{percentage_obtained}%</b>", parse_mode='HTML')
+    # Calculando el porcentaje obtenido para esta operación (aunque no lo necesitemos para la cartera)
+    percentage_obtained = (operation_value / operation_open.capital_invested) * 100
+
+    # Actualizar el capital actual de la cartera sumando el valor de la operación
+    wallet.current_capital += operation_value
+
+    # Calcular la nueva rentabilidad total (profit) en base al capital actual
+    wallet.profit = ((wallet.current_capital - wallet.initial_capital) / wallet.initial_capital) * 100
+
+    # Actualizar el capital más alto alcanzado (peak_capital)
+    if wallet.peak_capital is None or wallet.current_capital > wallet.peak_capital:
+        wallet.peak_capital = wallet.current_capital
+
+    # Calculando el drawdown en base al peak_capital
+    drawdown = ((wallet.peak_capital - wallet.current_capital) / wallet.peak_capital) * 100
+    wallet.max_drawdown = max(wallet.max_drawdown or 0, drawdown)  # Guardar el mayor drawdown registrado
+
+    # Guardar los cambios en la cartera
+    try:
+        await wallet.save()
+    except Exception as db_error:
+        print(f"Error al actualizar la cartera: {db_error}")
+
+    await message.answer(f"✅ <b>Venta guardada:</b>\n <b>{share.ticker}</b>, con precio de cierre <b>{latest_close_price_value}€</b>.\nResultado de la operación <b>{percentage_obtained}%</b>", parse_mode='HTML')
 
     return
 

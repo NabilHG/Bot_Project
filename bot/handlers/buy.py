@@ -18,7 +18,7 @@ class ProccesBuyForm(StatesGroup):
     amount = State()
 
 
-async def proccess_buy(id, message, capital, state):
+async def proccess_buy(message, capital, state):
 
     data = await state.get_data()
     wallet = data.get("wallet")  
@@ -41,10 +41,13 @@ async def proccess_buy(id, message, capital, state):
             wallet=wallet,
             share=share
         )
-
+        wallet.current_capital = wallet.current_capital - capital
+        wallet.number_of_operations += 1
         # Guardar los cambios en la base de datos
         await operation.save()
         await wallet_share.save()
+        await wallet.save()
+
         await message.answer(f"✅ <b>Compra guardada:</b>\n <b>{share.ticker}</b>, con precio de cierre <b>{purchased_price}€</b> y capital invertido <b>{capital}€</b>", parse_mode='HTML')
     except IntegrityError as db_error:
         print(f"Ocurrió un error al guardar en la base de datos: {db_error}")
@@ -58,7 +61,8 @@ async def cancel_buy_handler(message: Message, state: FSMContext):
 async def ask_to_buy_handler(message: Message, state: FSMContext):
 
     args = message.text.split(maxsplit=1)
-    
+    ticker = args[1].upper()
+
     if not len(args) > 1:
         await message.reply("Por favor, proporciona un ticker después del comando.")
         return
@@ -77,7 +81,6 @@ async def ask_to_buy_handler(message: Message, state: FSMContext):
         print(f"Error fetching data: {e}")
         return
 
-    ticker = args[1].upper()
     if args[0] == "/comprar":
         # Guardar el valor en el FSMContext
         await state.update_data(wallet=wallet)
@@ -90,7 +93,7 @@ async def ask_to_buy_handler(message: Message, state: FSMContext):
 async def ask_amount_to_buy(message: Message, state: FSMContext):
     data = await state.get_data()
     wallet = data.get("wallet")  
-
+    share = data.get("share")
     try:
         capital = float(message.text)
         if capital > 0:
@@ -98,7 +101,10 @@ async def ask_amount_to_buy(message: Message, state: FSMContext):
                 await proccess_buy(message, capital, state)
                 await state.clear()  # Limpiar el estado después de completar la compra
             else:
-                await message.answer("Por favor, ingresa una cantidad <b>menor o igual</b> al capital actual.\nPara comprar, primero actualiza el capital inicial en <b>/actualizar</b>", parse_mode='HTML')
+                msg = (f"Por favor, ingresa una cantidad <b>menor o igual</b> al capital actual de {wallet.current_capital}€\n" + 
+                       f"Para comprar, vuelva a iniciar el proceso <b>/comprar {share.ticker}</b> o actualize el capital actual en <b>/actualizar</b>")
+                await message.answer(msg, parse_mode='HTML')
+                await state.clear()
                 return
         else:
             await message.answer("Por favor, ingresa una cantidad válida de capital.")
