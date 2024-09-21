@@ -1,4 +1,5 @@
 import base64
+import re
 from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -26,6 +27,23 @@ async def decode_multiple_params(encoded_data):
     else:
         params = [decoded_str]
     return params
+
+async def trim_emojis(txt): # Expresión regular que captura emojis y otros caracteres especiales Unicode 
+    emoji_pattern = re.compile( 
+        "[" 
+        u"\U0001F600-\U0001F64F" # Emoticonos 
+        u"\U0001F300-\U0001F5FF" # Símbolos y pictogramas 
+        u"\U0001F680-\U0001F6FF" # Transporte y símbolos 
+        u"\U0001F700-\U0001F77F" # Alquimia 
+        u"\U0001F780-\U0001F7FF" # Geometría adicional 
+        u"\U0001F800-\U0001F8FF" # Componentes adicionales 
+        u"\U0001F900-\U0001F9FF" # Emoticonos adicionales y más símbolos 
+        u"\U0001FA00-\U0001FA6F" # Componentes adicionales 
+        u"\U00002702-\U000027B0" # Diversos símbolos 
+        u"\U000024C2-\U0001F251" # Otros caracteres especiales 
+        "]+", flags=re.UNICODE ) 
+    return emoji_pattern.sub(r'', txt)  
+
 # Manejador para el comando /register
 @router.message(Command(commands=["start"]))
 async def send_welcome(message: Message, state: FSMContext):
@@ -49,7 +67,7 @@ async def send_welcome(message: Message, state: FSMContext):
     except DoesNotExist:
         # Si el usuario no existe, continúa con el registro
         await message.reply("¡Hola! Para registrarte, por favor responde a las siguientes preguntas.")
-        await message.answer("1. ¿Cómo quieres que se dirija el bot hacia ti?")
+        await message.answer("1. ¿Cómo quieres que me dirija hacia ti?")
         await state.update_data(params=params)
         await state.set_state(RegisterForm.name)
 
@@ -61,7 +79,7 @@ async def process_name(message: Message, state: FSMContext):
         await message.answer("Por favor, ingresa un nombre válido (solo letras).")
         return  # No avanzamos de estado
     await state.update_data(name=message.text)
-    await message.answer("2. ¿Cuál es tu número de teléfono?")
+    await message.answer(f"Perfecto <b>{message.text}</b> 2. ¿Cuál es tu número de teléfono?", parse_mode='HTML')
     await state.set_state(RegisterForm.phone)
 
 @router.message(RegisterForm.phone)
@@ -92,9 +110,9 @@ async def process_capital(message: Message, state: FSMContext):
     # Teclado para seleccionar el perfil de inversor
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Conservador")],
-            [KeyboardButton(text="Medio")],
-            [KeyboardButton(text="Atrevido")]
+            [KeyboardButton(text="🏠Conservador🏠")],
+            [KeyboardButton(text="⭐Medio⭐")],
+            [KeyboardButton(text="🚀Atrevido🚀")]
         ],
         resize_keyboard=True
     )
@@ -106,7 +124,7 @@ async def process_capital(message: Message, state: FSMContext):
 @router.message(RegisterForm.investor_profile)
 async def process_investor_profile(message: Message, state: FSMContext):
     print("OYE8")
-    valid_profiles = {"Conservador", "Medio", "Atrevido"}
+    valid_profiles = {"🏠Conservador🏠", "⭐Medio⭐", "🚀Atrevido🚀"}
     if message.text not in valid_profiles:
         await message.answer("Por favor, elige una opción válida (Conservador, Medio o Atrevido).")
         return  # No avanzamos de estado
@@ -114,7 +132,8 @@ async def process_investor_profile(message: Message, state: FSMContext):
     await state.update_data(investor_profile=message.text)
 
     profile_map = {"Conservador": 0.2, "Medio": 0.4, "Atrevido": 0.6}
-    investor_profile = profile_map[message.text]
+    text = await trim_emojis(message.text)
+    investor_profile = profile_map[text]
     
     first_name = message.from_user.first_name
     last_name = message.from_user.last_name
@@ -163,7 +182,18 @@ async def process_investor_profile(message: Message, state: FSMContext):
         await message.answer(f"Error al registrar el usuario: {e}")
 
     await message.answer(f"✅ Registro completado: \n{summary}", reply_markup=types.ReplyKeyboardRemove(), parse_mode='HTML')
-    
+    if user.id not in admin_ids:
+        bot = message.bot
+        msg = (f'✅ Nuevo usuario registrado: \n{summary}')
+        if user.is_lictor:
+            print("les")
+            await bot.send_message(int(FIRST_ADMIN), msg, parse_mode='HTML')
+        else:
+            print("els")
+            for admin in admin_ids:
+                await bot.send_message(int(admin), msg, parse_mode='HTML')
+
+
     # Guardar los cambios en la base de datos
     try:
         await user.save()  

@@ -259,7 +259,7 @@ async def simulation(df):
     # await get_img(df_portfolio_tracking)      
     return str(max_drawdown), str(profitability), str(average_hold_duration), str(avg_notification)
 
-@router.message(Command(commands=["backtest", "BACKTEST", "Backtest", "BackTest"]))
+@router.message(Command(commands=["a242cf17-f7d6-49bf-a700-17116cd026ee"]))
 async def backtest_handler(message: Message):
     print("OYE2")
     max_drawdown, profitability, average_hold_duration, avg_notification = await calculate_maximum_drawdown_profit()

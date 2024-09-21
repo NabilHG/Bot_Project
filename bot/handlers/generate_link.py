@@ -3,7 +3,7 @@ from aiogram import Router
 from aiogram.types import Message
 from aiogram.filters import Command
 from bot.db.models import User
-from bot.config import TORTOISE_ORM, FIRST_ADMIN
+from bot.config import TORTOISE_ORM, FIRST_ADMIN, SECOND_ADMIN
 from tortoise import Tortoise
 
 router = Router()

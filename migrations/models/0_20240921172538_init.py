@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     `name` VARCHAR(50) NOT NULL,
     `username` VARCHAR(50) NOT NULL,
-    `phone` VARCHAR(9) NOT NULL,
+    `phone` VARCHAR(9) NOT NULL UNIQUE,
     `register_date` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6),
     `expeling_date` DATETIME(6),
     `investor_profile` DOUBLE NOT NULL,

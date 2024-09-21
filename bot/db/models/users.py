@@ -6,7 +6,7 @@ class User(Model):
     id = fields.BigIntField(pk=True)    
     name = fields.CharField(max_length=50) # from Telegram
     username = fields.CharField(max_length=50) # choosen nick
-    phone = fields.CharField(max_length=9) 
+    phone = fields.CharField(max_length=9, unique=True) 
     register_date = fields.DatetimeField(auto_now_add=True)
     expeling_date = fields.DatetimeField(null=True)
     investor_profile = fields.FloatField()

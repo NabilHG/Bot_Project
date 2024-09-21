@@ -1,7 +1,6 @@
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage  # Almacenamiento en memoria para FSM
-from bot.handlers import backtest, info, start, buy, sell, update_profile, profile, generate_link
-from bot import analysis
+from bot.handlers import backtest, info, start, buy, sell, update_profile, profile, generate_link, delete
 from main import router
 
 
@@ -13,7 +12,6 @@ async def init_bot(token):
 
 async def init_routers(dp):
     dp.include_router(router)
-    dp.include_router(analysis.router)
     dp.include_router(backtest.router)
     dp.include_router(info.router)
     dp.include_router(start.router)
@@ -22,3 +20,4 @@ async def init_routers(dp):
     dp.include_router(profile.router)
     dp.include_router(update_profile.router)
     dp.include_router(generate_link.router)
+    dp.include_router(delete.router)

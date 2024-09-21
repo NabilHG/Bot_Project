@@ -107,7 +107,7 @@ async def ask_amount_to_buy(message: Message, state: FSMContext):
         capital = float(message.text)
         if capital > 0:
             if wallet.current_capital >= capital:
-                await message.answer("Estas seguro de realizar la compra?", reply_markup=keyboard)
+                await message.answer("¿Estás seguro de realizar la compra?", reply_markup=keyboard)
                 await state.update_data(capital=capital)
                 await state.set_state(ProccesBuyForm.confirm)
             else:
