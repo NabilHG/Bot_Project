@@ -1,11 +1,11 @@
-# start_handler.py
+import base64
 from aiogram import Router, types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import Command
 from bot.db.models import User, Wallet
-from bot.config import TORTOISE_ORM
+from bot.config import TORTOISE_ORM, FIRST_ADMIN
 from tortoise import Tortoise
 from tortoise.exceptions import DoesNotExist
 
@@ -18,10 +18,25 @@ class RegisterForm(StatesGroup):
     capital = State()
     investor_profile = State()
 
+async def decode_multiple_params(encoded_data):
+    decoded_bytes = base64.urlsafe_b64decode(encoded_data)
+    decoded_str = decoded_bytes.decode('utf-8')
+    if '-' in decoded_str:
+        params = decoded_str.split('-')
+    else:
+        params = [decoded_str]
+    return params
 # Manejador para el comando /register
-@router.message(Command(commands=["registro"]))
+@router.message(Command(commands=["start"]))
 async def send_welcome(message: Message, state: FSMContext):
-    print("OYE4")
+    args = message.text.split(maxsplit=1)
+    if len(args)<2:
+        await message.answer("Error.")
+        return
+    print(args)
+    encoded_data = args[1]
+    params = await decode_multiple_params(encoded_data)
+    print(params)
     await Tortoise.init(TORTOISE_ORM)
 
     # Verifica si el usuario ya está registrado
@@ -35,6 +50,7 @@ async def send_welcome(message: Message, state: FSMContext):
         # Si el usuario no existe, continúa con el registro
         await message.reply("¡Hola! Para registrarte, por favor responde a las siguientes preguntas.")
         await message.answer("1. ¿Cómo quieres que se dirija el bot hacia ti?")
+        await state.update_data(params=params)
         await state.set_state(RegisterForm.name)
 
 # Manejador para capturar el nombre o cómo quiere que se dirija el bot
@@ -107,12 +123,21 @@ async def process_investor_profile(message: Message, state: FSMContext):
     username = f"{first_name} {last_name}" if last_name else first_name
     data = await state.get_data()
     summary = (
-        f"Nombre: {data['name']}\n"
-        f"Teléfono: {data['phone']}\n"
-        f"Capital Inicial: {data['capital']}\n"
-        f"Perfil de Inversor: {data['investor_profile']}"
+        f"Nombre: <b>{data['name']}</b>\n"
+        f"Teléfono: <b>{data['phone']}</b>\n"
+        f"Capital Inicial: <b>{data['capital']}€</b>\n"
+        f"Perfil de Inversor: <b>{data['investor_profile']}</b>"
     )
-
+    params = data.get("params")
+    is_lictor = False
+    father_id = params[0]
+    if len(params) > 1:
+        is_lictor = True
+        father_id = params[1]
+    admin_ids = [int(FIRST_ADMIN)]
+    is_admin = False
+    if message.from_user.id in admin_ids:
+        is_admin = True
     try:
         user = await User.create(
             id=message.from_user.id,
@@ -120,7 +145,9 @@ async def process_investor_profile(message: Message, state: FSMContext):
             username=username,
             phone=data['phone'],
             investor_profile=investor_profile,
-            is_admin=True
+            is_admin=is_admin,
+            belongs_to=father_id,
+            is_lictor=is_lictor
         )
         wallet = await Wallet.create(
             initial_capital = data['capital'],
@@ -135,7 +162,7 @@ async def process_investor_profile(message: Message, state: FSMContext):
     except Exception as e:
         await message.answer(f"Error al registrar el usuario: {e}")
 
-    await message.answer(f"Registro completado: \n{summary}", reply_markup=types.ReplyKeyboardRemove())
+    await message.answer(f"✅ Registro completado: \n{summary}", reply_markup=types.ReplyKeyboardRemove(), parse_mode='HTML')
     
     # Guardar los cambios en la base de datos
     try:

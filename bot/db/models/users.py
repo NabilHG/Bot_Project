@@ -9,8 +9,10 @@ class User(Model):
     phone = fields.CharField(max_length=9) 
     register_date = fields.DatetimeField(auto_now_add=True)
     expeling_date = fields.DatetimeField(null=True)
-    investor_profile = fields.FloatField(null=True)
+    investor_profile = fields.FloatField()
     is_admin = fields.BooleanField()
-
+    belongs_to = fields.BigIntField(null=True)
+    is_lictor = fields.BooleanField(null=True)
+    
     class Meta:
         table = "users"

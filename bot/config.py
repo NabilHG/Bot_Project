@@ -11,7 +11,7 @@ DB_URL = getenv("DB_URL")
 
 TORTOISE_ORM = {
     "connections": {
-        "default": f'mysql://root:1234@127.0.0.1:3306/bot_rsi'  # Ajusta esto según tu configuración
+        "default": f'mysql://root:1234@127.0.0.1:3306/avisador'  # Ajusta esto según tu configuración
     },
     "apps": {
         "models": {
@@ -36,6 +36,9 @@ MATRIX = {
     # "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZN", "META", "BRK-B", "LLY", "AVGO", "TSM", "NVO", "JPM"],
 }
 
+
+FIRST_ADMIN = getenv("FIRST_ADMIN")
+SECOND_ADMIN = getenv("SECOND_ADMIN")
 
 # External API keys
 ALPHA_VANTAGE_API_KEYS = [

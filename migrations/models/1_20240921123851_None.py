@@ -14,8 +14,10 @@ CREATE TABLE IF NOT EXISTS `users` (
     `phone` VARCHAR(9) NOT NULL,
     `register_date` DATETIME(6) NOT NULL  DEFAULT CURRENT_TIMESTAMP(6),
     `expeling_date` DATETIME(6),
-    `investor_profile` DOUBLE,
-    `is_admin` BOOL NOT NULL
+    `investor_profile` DOUBLE NOT NULL,
+    `is_admin` BOOL NOT NULL,
+    `belongs_to` BIGINT,
+    `is_lictor` BOOL
 ) CHARACTER SET utf8mb4;
 CREATE TABLE IF NOT EXISTS `wallets` (
     `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
