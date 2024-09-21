@@ -67,6 +67,8 @@ async def handle_maintenance_message(message: Message):
 async def main() -> None:
 
     bot, dp = await api.init_bot(config.TELEGRAM_BOT_TOKEN)
+    await api.init_routers(dp)
+
     # Inicializa la base de datos
     # await init_db() 
 
@@ -83,7 +85,6 @@ async def main() -> None:
 
     # await data_manager.get_data()
 
-    await api.init_routers(dp)
 
     await analysis_task(bot)
 

@@ -5,7 +5,7 @@ from aiogram.utils.formatting import Text, Bold
 
 router = Router()
 
-@router.message(Command(commands=["start", "help", "info"]))
+@router.message(Command(commands=["ayuda", "info"]))
 async def analysis_handler(message: Message):
     print("OYE3")
     # user_id = message.from_user.id  # Obtén el ID del usuario

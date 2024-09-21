@@ -171,3 +171,4 @@ async def summary_profile(message: Message, state: FSMContext):
     
     await message.answer(msg, parse_mode='HTML')
     await state.clear()
+    return
