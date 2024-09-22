@@ -101,10 +101,10 @@ async def analyze_user_tickers(user, tickers, data_to_analyze, bot):
         if not wallet:
             print(f'No wallet found for user {user.id}')
             return
-        
+       
         print(f'Processing wallet for user {user.id} ({user.name}), wallet id: {wallet.id}')
         user_shares = {ws.share_id for ws in await models.WalletShare.filter(wallet=wallet.id)}
-        
+       
         for ticker in tickers:
             ticker_data = data_to_analyze.get(ticker, {})
             rsi_value = ticker_data.get('RSI')
@@ -114,38 +114,37 @@ async def analyze_user_tickers(user, tickers, data_to_analyze, bot):
                 continue
 
             print(f"Analyzing ticker: {ticker} for user: {user.id}")
-            
+           
             share = await models.Share.filter(ticker=ticker).first()
             if not share:
                 print(f"No share data found for ticker {ticker}")
                 continue
-            
+           
             operation_open = await models.Operation.filter(ticker=ticker, status="open", wallet_id=wallet.id).first()
             share_in_portfolio = share.id in user_shares
 
             # Verificar si hay operaciones abiertas y procesar
             if rsi_value <= 25 and not share_in_portfolio:
-                print("investor", user.investor_profile)
-                print(f'Buy alert for {ticker}')
                 capital_to_invest = wallet.current_capital
                 if round(wallet.initial_capital * user.investor_profile, 2) < wallet.current_capital:
                     capital_to_invest = round(wallet.initial_capital * user.investor_profile, 2)
-                    
+                   
                 msg = (
                     '🚨 <b>Alerta de compra</b> 🚨\n\n' +
                     f'Ticker: <b>{share.ticker}</b>\n' +
-                    f"Valor de Cierre: <b>{round(close_value, 2)}€</b>\n" + 
-                    f'Según tu perfil y el capital actual disponible, de inversor deberías de invertir <b>{capital_to_invest}€</b>'
-
+                    f"Valor de Cierre: <b>{round(close_value, 2)}€</b>\n" +
+                    f'Según tu perfil de inversor y el capital actual disponible, el bot sugiere una cantidad estimada para invertir: <b>{capital_to_invest}€</b>\n' + 
+                    f'Esta sugerencia es <b>automática</b> y <b>no</b> constituye una recomendación de inversión.'
                 )
                 try:
                     await bot.send_message(user.id, msg, parse_mode='HTML')
+                    await asyncio.sleep(0.2)  # Pausa mínima entre mensajes
                     await bot.send_message(user.id, f"¿Deseas realizar la compra? (/comprar <b>{ticker}</b> o /rechazar)", parse_mode='HTML')
+                    await asyncio.sleep(0.2)  # Pausa mínima entre mensajes
                 except Exception as e:
                     print(f"Error sending buy alert: {e}")
-                    
+                   
             elif rsi_value >= 70 and share_in_portfolio:
-                print(f'Sell alert for {ticker}: gain detected')
                 msg = (
                     '🚨 <b>Alerta de venta por beneficios</b> 🚨\n\n' +
                     f'Ticker: <b>{share.ticker}</b>\n' +
@@ -153,15 +152,14 @@ async def analyze_user_tickers(user, tickers, data_to_analyze, bot):
                 )
                 try:
                     await bot.send_message(user.id, msg, parse_mode='HTML')
+                    await asyncio.sleep(0.2)  # Pausa mínima entre mensajes
                     await bot.send_message(user.id, f"¿Deseas realizar la venta? (/vender <b>{ticker}</b> o /rechazar)", parse_mode='HTML')
+                    await asyncio.sleep(0.2)  # Pausa mínima entre mensajes
                 except Exception as e:
                     print(f"Error sending sell alert: {e}")
 
             if operation_open:
                 past_close_value = operation_open.purchased_price
-                print(f"Open operation found for {ticker}, past purchased_price: {past_close_value}, current close: {close_value}")
-                print(share_in_portfolio, rsi_value)
-                # Si la operación ha caído más del 10% y la acción está en el portafolio
                 if past_close_value  * 0.9 > close_value and share_in_portfolio:
                     msg = (
                     '🚨 <b>Alerta de venta por pérdidas</b> 🚨\n\n' +
@@ -170,10 +168,13 @@ async def analyze_user_tickers(user, tickers, data_to_analyze, bot):
                     )
                     try:
                         await bot.send_message(user.id, msg, parse_mode='HTML')
+                        await asyncio.sleep(0.2)  # Pausa mínima entre mensajes
                         await bot.send_message(user.id, f"¿Deseas realizar la venta? (/vender <b>{ticker}</b> o /rechazar)", parse_mode='HTML')
+                        await asyncio.sleep(0.2)  # Pausa mínima entre mensajes
+
                     except Exception as e:
                         print(f"Error sending sell alert: {e}")                    
-            
+           
     except Exception as e:
         print(f"Error processing user {user.id}: {e}")
 

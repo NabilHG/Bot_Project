@@ -54,15 +54,15 @@ async def schedule_daily_task(updated_data, is_ticker_updated, bot):
 def is_analysis_time():
     # Verifica si estamos en el periodo de analisis (22:25 - 22:40)
     now = datetime.now().time()
-    maintenance_start = time(22, 24)
-    maintenance_end = time(22, 41)
+    maintenance_start = time(22, 29)
+    maintenance_end = time(22, 35)
     return maintenance_start <= now <= maintenance_end
 
 #Handler específico solo para tiempos de mantenimiento
 @router.message(lambda message: is_analysis_time())  # Se registra solo para tiempos de mantenimiento
 async def handle_maintenance_message(message: Message):
     print("OYE1")
-    await message.reply("🚧 Mientras se hace el análisis diario el bot no puede recibir mensajes. Por favor, inténtalo más tarde. 🚧")
+    await message.reply("🚧 Mientras se hace el análisis diario el bot no puede recibir mensajes. Por favor, inténtalo a partir de las 22:35. 🚧")
 
 async def main() -> None:
 
@@ -79,14 +79,13 @@ async def main() -> None:
     is_ticker_updated = {ticker: False for ticker in config.MATRIX[list(config.MATRIX.keys())[-1]]}
 
     # Inicia la tarea diaria
-    # asyncio.create_task(schedule_daily_task(updated_data, is_ticker_updated, bot))
+    asyncio.create_task(schedule_daily_task(updated_data, is_ticker_updated, bot))
         
 
 
     # await data_manager.get_data()
 
 
-    await analysis_task(bot)
 
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 

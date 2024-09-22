@@ -9,11 +9,13 @@ from bot.db.models import User, Wallet
 from bot.config import TORTOISE_ORM, FIRST_ADMIN
 from tortoise import Tortoise
 from tortoise.exceptions import DoesNotExist
-
+from bot.handlers.info import info_handler
 router = Router()
 
 # Define los estados para la conversación
 class RegisterForm(StatesGroup):
+    read = State()
+    confirm = State()
     name = State()
     phone = State()
     capital = State()
@@ -27,6 +29,21 @@ async def decode_multiple_params(encoded_data):
     else:
         params = [decoded_str]
     return params
+
+keyboard = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="✅ Acepto")],
+        [KeyboardButton(text="❌ No acepto")],
+    ],
+    resize_keyboard=True
+)
+
+keyboard2 = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="Leer")],
+    ],
+    resize_keyboard=True
+)
 
 async def trim_emojis(txt): # Expresión regular que captura emojis y otros caracteres especiales Unicode 
     emoji_pattern = re.compile( 
@@ -49,7 +66,7 @@ async def trim_emojis(txt): # Expresión regular que captura emojis y otros cara
 async def send_welcome(message: Message, state: FSMContext):
     args = message.text.split(maxsplit=1)
     if len(args)<2:
-        await message.answer("Error.")
+        await message.answer("Error, utiliza el mismo enlaze para registrarte.")
         return
     print(args)
     encoded_data = args[1]
@@ -65,11 +82,47 @@ async def send_welcome(message: Message, state: FSMContext):
         # Si llega aquí, el usuario ya existe
         await message.reply("Ya estás registrado. No es necesario volver a registrarte.")
     except DoesNotExist:
-        # Si el usuario no existe, continúa con el registro
-        await message.reply("¡Hola! Para registrarte, por favor responde a las siguientes preguntas.")
-        await message.answer("1. ¿Cómo quieres que me dirija hacia ti?")
+
         await state.update_data(params=params)
+        
+        msg = ("Antes de continuar, es importante que <b>leas</b> y aceptes los términos de uso.\nEl uso de este bot implica que entiendes que las sugerencias proporcionadas son automáticas y <b>no</b> constituyen asesoramiento financiero.\nEres el único responsable de las decisiones de inversión que tomes.")
+
+        # Si el usuario no existe, continúa con el registro
+        await message.reply("¡Hola! Para registrarte, por favor responde a las siguientes preguntas. Pero primero lee con <b>antención</b> el siguiente texto.", parse_mode='HTML')
+        await message.answer(msg, reply_markup=keyboard2, parse_mode='HTML')
+        await state.set_state(RegisterForm.read)
+        
+
+@router.message(RegisterForm.read)
+async def read_terms(message: Message, state: FSMContext):
+    text = message.text.lower()
+    msg = (
+            "Este bot tiene la función de enviar alertas automatizadas de compra y venta de acciones, así como hacer un seguimiento de las ganancias y pérdidas.\n<b>No</b> ofrece asesoramiento financiero ni recomendaciones personalizadas.\n"
+
+            "\nEl objetivo del bot es automatizar el análisis de empresas basado en indicadores predefinidos. Usted podría realizar este análisis por su cuenta, pero al utilizar el bot, acepta que lo hace únicamente para facilitar el proceso de análisis.\n"
+
+            "Según el perfil de inversor que haya seleccionado, el bot calculará un porcentaje de inversión basado en su capital inicial. <b>Estas sugerencias de porcentaje son estimaciones automáticas</b> y no constituyen recomendaciones de inversión.\n"
+
+            "\nCada usuario es completamente libre de tomar sus propias decisiones de inversión y <b>asume la total responsabilidad</b> por dichas decisiones.\nLos desarrolladores y el equipo de mantenimiento <b>no asumen responsabilidad alguna</b> por las consecuencias que puedan derivarse de la utilización del bot o de las operaciones bursátiles."
+        )
+    
+    if text == "leer":
+        await message.answer(msg, reply_markup=keyboard, parse_mode='HTML')
+        await state.set_state(RegisterForm.confirm)
+    else:
+        await message.answer("Escribe <b>leer</b>.", parse_mode='HTML')
+        return
+
+@router.message(RegisterForm.confirm)
+async def confirm_terms(message: Message, state: FSMContext):
+    text = await trim_emojis(message.text.lower())
+    print(text)
+    if text  == " acepto":
+        await message.answer("1. ¿Cómo quieres que me dirija hacia ti?", reply_markup=types.ReplyKeyboardRemove())
         await state.set_state(RegisterForm.name)
+    else:
+        await message.answer("Operación cancelada.", reply_markup=types.ReplyKeyboardRemove())
+        await state.clear()
 
 # Manejador para capturar el nombre o cómo quiere que se dirija el bot
 @router.message(RegisterForm.name)
@@ -79,7 +132,7 @@ async def process_name(message: Message, state: FSMContext):
         await message.answer("Por favor, ingresa un nombre válido (solo letras).")
         return  # No avanzamos de estado
     await state.update_data(name=message.text)
-    await message.answer(f"Perfecto <b>{message.text}</b> 2. ¿Cuál es tu número de teléfono?", parse_mode='HTML')
+    await message.answer(f"Perfecto <b>{message.text}</b>\n2. ¿Cuál es tu número de teléfono?", parse_mode='HTML')
     await state.set_state(RegisterForm.phone)
 
 @router.message(RegisterForm.phone)
@@ -102,13 +155,13 @@ async def process_capital(message: Message, state: FSMContext):
             await message.answer("Por favor, ingresa un capital positivo.")
             return  # No avanzamos de estado
     except ValueError:
-        await message.answer("Por favor, ingresa una cantidad válida de capital.")
+        await message.answer("Por favor, ingresa una cantidad válida de capital(solo números).")
         return  # No avanzamos de estado
     
     await state.update_data(capital=capital)
     
     # Teclado para seleccionar el perfil de inversor
-    keyboard = ReplyKeyboardMarkup(
+    keyboardIP = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="🏠Conservador🏠")],
             [KeyboardButton(text="⭐Medio⭐")],
@@ -116,8 +169,23 @@ async def process_capital(message: Message, state: FSMContext):
         ],
         resize_keyboard=True
     )
-
-    await message.answer("4. ¿Cuál es tu perfil de inversor? (Elige una opción)", reply_markup=keyboard)
+    # msg_investor = (
+    #     "El perfil de inversor sirve para sugerir automaticamente el capital a invertir en cada operación.\n"
+    #     "<b>🏠Conservador🏠</b>:"
+    #     "<b>⭐Medio⭐</b>:"
+    #     "<b>🚀Atrevido🚀</b>: "
+    # )
+    msg_investor = ( 
+        "El perfil de inversor sirve para sugerir automáticamente el capital a invertir en cada operación.\n" 
+        "<b>Perfil de inversor</b> | <b>Porcentaje respecto al capital inicial</b>\n" 
+        "<pre>" 
+        "Conservador   | 20%\n" 
+        "Medio         | 40%\n" 
+        "Atrevido      | 60%\n" 
+        "</pre>" 
+    )  
+    await message.answer("4. ¿Cuál es tu perfil de inversor? (Elige una opción)", reply_markup=keyboardIP)
+    await message.answer(msg_investor, parse_mode='HTML')
     await state.set_state(RegisterForm.investor_profile)
 
 # Manejador para capturar el perfil de inversor
@@ -166,7 +234,8 @@ async def process_investor_profile(message: Message, state: FSMContext):
             investor_profile=investor_profile,
             is_admin=is_admin,
             belongs_to=father_id,
-            is_lictor=is_lictor
+            is_lictor=is_lictor,
+            terms_of_use=True 
         )
         wallet = await Wallet.create(
             initial_capital = data['capital'],
@@ -193,7 +262,7 @@ async def process_investor_profile(message: Message, state: FSMContext):
             for admin in admin_ids:
                 await bot.send_message(int(admin), msg, parse_mode='HTML')
 
-
+    await info_handler(message)
     # Guardar los cambios en la base de datos
     try:
         await user.save()  

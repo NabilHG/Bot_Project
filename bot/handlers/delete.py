@@ -41,7 +41,7 @@ async def analysis_handler(message: Message, state: FSMContext):
     if user_id not in [int(FIRST_ADMIN)]:
         print("d")
         return
-    await message.answer("Para eliminar a un usuario, debes de introducir su <b>teléfono</b>.", parse_mode='HTML')
+    await message.answer("Para eliminar a un usuario, debes de introducir su <b>teléfono</b>. Para cancelar la operación <b>/rechazar</b>", parse_mode='HTML')
     await message.answer("Teléfono:")
     await state.set_state(ProccesDeleteForm.phone)
 
@@ -60,7 +60,7 @@ async def phone_to_delete(message: Message, state: FSMContext):
         f"Nombre: <b>{user.name}</b>\n"
         f"Teléfono: <b>{user.phone}</b>\n"
     )
-    await message.answer(f"¿Estás seguro de <b>eliminar</b> al siguiente usuario?\{user_data}", reply_markup=keyboard, parse_mode='HTML')
+    await message.answer(f"¿Estás seguro de <b>eliminar</b> al siguiente usuario?\n{user_data}", reply_markup=keyboard, parse_mode='HTML')
     await state.update_data(user=user)
     await state.set_state(ProccesDeleteForm.confirm)
 

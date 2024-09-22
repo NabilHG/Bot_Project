@@ -116,7 +116,7 @@ async def ask_to_sell_handler(message: Message, state: FSMContext):
         await state.update_data(share=share)
         await state.update_data(operation=operation_open)
 
-        await message.answer("¿Qué cantidad deseas vender?")
+        await message.answer("¿Qué cantidad deseas vender?(Solo números)")
         await state.set_state(ProccesSellForm.amount)
 
 @router.message(ProccesSellForm.amount)

@@ -13,6 +13,7 @@ class User(Model):
     is_admin = fields.BooleanField()
     belongs_to = fields.BigIntField(null=True)
     is_lictor = fields.BooleanField(null=True)
-    
+    terms_of_use = fields.BooleanField(null=True)
+
     class Meta:
         table = "users"

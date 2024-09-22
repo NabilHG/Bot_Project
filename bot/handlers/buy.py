@@ -95,7 +95,7 @@ async def ask_to_buy_handler(message: Message, state: FSMContext):
         await state.update_data(wallet=wallet)
         await state.update_data(share=share)
 
-        await message.answer("¿Qué cantidad deseas invertir?")
+        await message.answer("¿Qué cantidad deseas invertir?(Solo números)")
         await state.set_state(ProccesBuyForm.amount)
 
 @router.message(ProccesBuyForm.amount)
