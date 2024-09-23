@@ -6,7 +6,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import Command
 from bot.db.models import User, Wallet
-from bot.config import TORTOISE_ORM, FIRST_ADMIN
+from bot.config import TORTOISE_ORM, FIRST_ADMIN, SECOND_ADMIN
 from tortoise import Tortoise
 from tortoise.exceptions import DoesNotExist
 from bot.handlers.info import info_handler
@@ -220,7 +220,7 @@ async def process_investor_profile(message: Message, state: FSMContext):
     if len(params) > 1:
         is_lictor = True
         father_id = params[1]
-    admin_ids = [int(FIRST_ADMIN)]
+    admin_ids = [int(FIRST_ADMIN), int(SECOND_ADMIN)]
     is_admin = False
     if message.from_user.id in admin_ids:
         is_admin = True

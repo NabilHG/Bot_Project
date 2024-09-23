@@ -25,7 +25,7 @@ keyboard = ReplyKeyboardMarkup(
         resize_keyboard=True
     )
 
-@router.message(Command(commands=["rechazar"]))
+@router.message(Command(commands=["cancelar"]))
 async def cancel_update_handler(message: Message, state: FSMContext):
     await message.answer("Operación cancelada.", reply_markup=types.ReplyKeyboardRemove())
     await state.clear()  # Limpiar el estado para cancelar la operación
@@ -55,7 +55,7 @@ async def udpate_profile_handler(message: Message, state:FSMContext):
         )    
     
     await message.answer(msg, parse_mode='HTML')
-    await message.answer('Escriba el número indicado para editar dicha característica.\nEn cualquier momento puede cancelar la acción con <b>/rechazar</b>',  parse_mode='HTML')
+    await message.answer('Escriba el número indicado para editar dicha característica.\nEn cualquier momento puede cancelar la acción con <b>/cancelar</b>',  parse_mode='HTML')
     await state.set_state(UpdateForm.select)
 
 @router.message(UpdateForm.select)

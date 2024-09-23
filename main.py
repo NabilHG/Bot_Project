@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import sys
-from aiogram.types import Message
+from aiogram.types import Message, BotCommand
 from bot import api, config, data_manager, update_data, analysis, seed_data
 from datetime import datetime, time, timedelta
 from aiogram import Router
@@ -64,11 +64,22 @@ async def handle_maintenance_message(message: Message):
     print("OYE1")
     await message.reply("🚧 Mientras se hace el análisis diario el bot no puede recibir mensajes. Por favor, inténtalo a partir de las 22:35. 🚧")
 
+async def set_commands(bot):
+    commands = [
+        BotCommand(command="/info", description="obtener más información"),
+        BotCommand(command="/perfil", description="ver el perfil actualizado"),
+        BotCommand(command="/actualizar", description="para editar ciertas características de tu perfil"),
+        BotCommand(command="/generar_link", description="genera un link para poder invitar a raiz de tu cuenta"),
+        BotCommand(command="/comprar", description="debes de proporcionar el ticker concreto para registrar una compra"),
+        BotCommand(command="/vender", description="debes de proporcionar el ticker concreto para registrar una venta"),
+    ]
+    await bot.set_my_commands(commands)
+
 async def main() -> None:
 
     bot, dp = await api.init_bot(config.TELEGRAM_BOT_TOKEN)
     await api.init_routers(dp)
-
+    await set_commands(bot)
     # Inicializa la base de datos
     # await init_db() 
 

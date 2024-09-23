@@ -38,7 +38,7 @@ async def cancel_sell_handler(message: Message, state: FSMContext):
 async def analysis_handler(message: Message, state: FSMContext):
     user_id = message.from_user.id
     print(user_id, )
-    if user_id not in [int(FIRST_ADMIN)]:
+    if user_id not in [int(FIRST_ADMIN), int(SECOND_ADMIN)]:
         print("d")
         return
     await message.answer("Para eliminar a un usuario, debes de introducir su <b>teléfono</b>. Para cancelar la operación <b>/rechazar</b>", parse_mode='HTML')
