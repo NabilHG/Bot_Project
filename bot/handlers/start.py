@@ -176,13 +176,12 @@ async def process_capital(message: Message, state: FSMContext):
     #     "<b>🚀Atrevido🚀</b>: "
     # )
     msg_investor = ( 
-        "El perfil de inversor sirve para sugerir automáticamente el capital a invertir en cada operación.\n" 
-        "<b>Perfil de inversor</b> | <b>Porcentaje respecto al capital inicial</b>\n" 
-        "<pre>" 
-        "Conservador   | 20%\n" 
-        "Medio         | 40%\n" 
-        "Atrevido      | 60%\n" 
-        "</pre>" 
+        "El perfil de inversor sirve para sugerir automáticamente el capital a invertir en cada operación.\n"
+        "Los siguientes datos han sido extraidos de una simulación desde el 01-01-2000 hasta hoy, aplicando el sistema. Simplemente reinvirtiendo las ganancias.\n" 
+        "<b>Perfil de inversor</b>, <b>Rentabilidad</b>, <b>Máximo drawdown</b>\n"
+        "Conservador, 312.1%, -25.3%\n"
+        "Medio, 420.08%, -40.13%\n"
+        "Atrevido , 499.92%, -50.38%\n"
     )  
     await message.answer("4. ¿Cuál es tu perfil de inversor? (Elige una opción)", reply_markup=keyboardIP)
     await message.answer(msg_investor, parse_mode='HTML')

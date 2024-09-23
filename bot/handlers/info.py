@@ -14,8 +14,9 @@ async def info_handler(message: Message):
         "<b>/perfil</b> se muestra tu perfil actualizado\n"
         "<b>/actualizar</b> para editar ciertas características de tu perfil\n"
         "<b>/generar_link</b> se genera un link para poder invitar a raiz de tu cuenta\n"
-        "<b>/comprar TICKER</b> debes de proporcionar el ticker concreto para realizar una compra.\n<code>Ejemplo: <b>/comprar AAPL</b> (se realizará una acción para guardar una compra de apple).</code>\n"
-        "<b>/vender TICKER</b> debes de proporcionar el ticker concreto para realizar una venta.\n<code>Ejemplo: <b>/vender AAPL</b> (se realizará una acción para guardar una venta de apple).</code>"
+        "<b>/comprar TICKER</b> debes de proporcionar el ticker concreto para realizar una compra.\n<code>Ejemplo: <b>/comprar AAPL</b> (se realizará una operación para guardar una compra de apple).</code>\n"
+        "<b>/vender TICKER</b> debes de proporcionar el ticker concreto para realizar una venta.\n<code>Ejemplo: <b>/vender AAPL</b> (se realizará una operación para guardar una venta de apple).</code>\n"
+        "❗<b>Importante</b>: recuerda que el bot <b>no</b> tiene capacidad de comprar ni de decidir por ti. Los comandos de /comprar y /vender solo son para llevar un registro sobre la rentabilidad del sistema."
     )
     user_id = message.from_user.id
     print(user_id, )
