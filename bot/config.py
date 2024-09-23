@@ -4,14 +4,15 @@ from os import getenv
 load_dotenv()
 
 # Token Telgram bot
-TELEGRAM_BOT_TOKEN = getenv("TELEGRAM_BOT_TOKEN")
+BOT_TOKEN = getenv("BOT_TOKEN")
 
 #db url
 DB_URL = getenv("DB_URL")
 
+
 TORTOISE_ORM = {
     "connections": {
-        "default": f'mysql://root:1234@127.0.0.1:3306/avisador'  # Ajusta esto según tu configuración
+        "default": f'{DB_URL}'  # Ajusta esto según tu configuración
     },
     "apps": {
         "models": {

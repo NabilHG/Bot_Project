@@ -77,7 +77,7 @@ async def set_commands(bot):
 
 async def main() -> None:
 
-    bot, dp = await api.init_bot(config.TELEGRAM_BOT_TOKEN)
+    bot, dp = await api.init_bot(config.BOT_TOKEN)
     await api.init_routers(dp)
     await set_commands(bot)
     # Inicializa la base de datos

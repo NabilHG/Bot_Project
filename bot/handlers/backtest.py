@@ -233,6 +233,11 @@ async def simulation(df):
     # Calcular duraciones promedio y otros datos finales
     if hold_durations:
         average_hold_duration = sum(hold_durations) / len(hold_durations)
+
+    df_portfolio_tracking['Fecha'] = pd.to_datetime(df_portfolio_tracking['Fecha'])
+    df_portfolio_tracking.set_index('Fecha', inplace=True)
+    annual_returns = df_portfolio_tracking['Portfolio Value'].resample('Y').last().pct_change() * 100
+    
     # Calcular max drawdown y rentabilidad
     df_portfolio_tracking["Peak"] = df_portfolio_tracking["Portfolio Value"].cummax()
     df_portfolio_tracking["Drawdown"] = (
@@ -256,6 +261,7 @@ async def simulation(df):
     print(f"Profitability: {profitability}%")
     print(f"Average Hold Duration: {average_hold_duration} days")
     print(f"Average Notifications per Month: {avg_notification}") 
+    print("??",annual_returns)
     # await get_img(df_portfolio_tracking)      
     return str(max_drawdown), str(profitability), str(average_hold_duration), str(avg_notification)
 

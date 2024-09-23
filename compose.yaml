@@ -5,19 +5,30 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    env_file:  # Usar el archivo `.env` para las variables de entorno
-      - .env
+    env_file:
+      - .env  # Carga el archivo .env para la aplicación
     depends_on:
-      - db
-
+      db:
+        condition: service_healthy
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}  # Usa las variables del archivo .env
+    restart: always
+    
   db:
-    image: mysql:8.4.0
-    env_file:  # Usar el archivo `.env` para las variables de entorno
-      - .env
+    image: mysql:8.0
+    env_file:
+      - .env  # Carga el archivo .env para MySQL
     ports:
       - "3306:3306"
-#     volumes:
-#       - db_data:/var/lib/mysql
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    restart: always
 
-# volumes:
-#   db_data:
+volumes:
+  db_data:
