@@ -60,6 +60,7 @@ async def udpate_profile_handler(message: Message, state:FSMContext):
 
 @router.message(UpdateForm.select)
 async def select_aspect(message: Message, state: FSMContext):
+    response = 0
     try:
         response = int(message.text)
     except Exception as e:

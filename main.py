@@ -6,6 +6,7 @@ from bot import api, config, data_manager, update_data, analysis, seed_data
 from datetime import datetime, time, timedelta
 from aiogram import Router
 from bot.db import init_db
+from bot.db.models import Share
 
 router = Router()
 
@@ -81,11 +82,19 @@ async def main() -> None:
     await api.init_routers(dp)
     await set_commands(bot)
     # Inicializa la base de datos
-    # await init_db() 
+    await init_db() 
 
     #Seed data base
-    # await seed_data.seed_data()
-    
+    try:
+        shares = await Share.all().exists()
+    except Exception as e:
+        print(e)
+    if not shares:
+        print(shares)
+        await seed_data.seed_data()
+    else:
+        print(shares)
+
     updated_data = [False]
     is_ticker_updated = {ticker: False for ticker in config.MATRIX[list(config.MATRIX.keys())[-1]]}
 

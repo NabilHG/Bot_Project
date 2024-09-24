@@ -1,6 +1,6 @@
 # dockerfile that runs python and installs the required packages
 
-FROM python:3.8-slim
+FROM python:3.11-slim
 
 WORKDIR /usr/src/app
 
