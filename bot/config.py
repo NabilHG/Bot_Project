@@ -6,8 +6,8 @@ load_dotenv(override=True)
 BOT_TOKEN = getenv("BOT_TOKEN")
 
 #db url
-DB_URL = getenv("DB_URL")
-
+MYSQL_ROOT_PASSWORD= getenv("MYSQL_ROOT_PASSWORD")
+MYSQL_DATABASE= getenv("MYSQL_DATABASE")
 
 TORTOISE_ORM = {
     "connections": {
@@ -17,8 +17,8 @@ TORTOISE_ORM = {
                 "host": "localhost",
                 "port": 3306,
                 "user": "root",
-                "password": "1234",
-                "database": "avisador",
+                "password": MYSQL_ROOT_PASSWORD,
+                "database": MYSQL_DATABASE,
                 "minsize": 1,  
                 "maxsize": 1,  
             },
