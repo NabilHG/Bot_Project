@@ -5,7 +5,7 @@ from aiogram.types import Message, BotCommand
 from bot import api, config, data_manager, update_data, analysis, seed_data
 from datetime import datetime, time, timedelta
 from aiogram import Router
-from bot.db import init_db
+from bot.db import init_db, close_db
 from bot.db.models import Share
 
 router = Router()
@@ -83,7 +83,7 @@ async def main() -> None:
     await set_commands(bot)
     # Inicializa la base de datos
     await init_db() 
-
+   
     #Seed data base
     try:
         shares = await Share.all().exists()
@@ -112,6 +112,7 @@ async def main() -> None:
     try:
         await dp.start_polling(bot)
     finally:
+        await close_db()
         await bot.session.close()
 
 

@@ -1,8 +1,7 @@
 from dotenv import load_dotenv
 from os import getenv
 
-load_dotenv()
-
+load_dotenv(override=True)
 # Token Telgram bot
 BOT_TOKEN = getenv("BOT_TOKEN")
 
@@ -12,15 +11,22 @@ DB_URL = getenv("DB_URL")
 
 TORTOISE_ORM = {
     "connections": {
-        "default": f'{DB_URL}'  # Ajusta esto según tu configuración
+        "default": {
+            "engine": "tortoise.backends.mysql",
+            "credentials": {
+                "host": "localhost",
+                "port": 3306,
+                "user": "root",
+                "password": "1234",
+                "database": "avisador",
+                "minsize": 1,  
+                "maxsize": 1,  
+            },
+        }
     },
     "apps": {
         "models": {
             "models": ["bot.db.models"],
-            "default_connection": "default",
-        },
-        "aerich": {
-            "models": ["aerich.models"],
             "default_connection": "default",
         }
     },
@@ -33,8 +39,7 @@ MATRIX = {
     "2010": ["XOM", "MSFT", "AAPL", "GE", "WMT", "BRK-B", "PG", "BAC", "JNJ", "WFC", "GOOG", "KO", "CVX", "PFE", "CSCO"],
     "2015": ["AAPL", "GOOG", "XOM", "BRK-B", "MSFT", "WFC", "JNJ", "NVS", "WMT", "GE", "PG", "JPM", "CVX", "ORCL", "VZ"],
     "2020": ["AAPL", "MSFT", "AMZN", "GOOG", "META", "BRK-B", "TSM", "ASML", "TSLA", "BABA", "JPM", "V", "MA", "UNH", "HD"],
-    # "2020": ["AAPL", "AMZN"],
-    # "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZN", "META", "BRK-B", "LLY", "AVGO", "TSM", "NVO", "JPM"],
+    "2025": ["MSFT", "AAPL", "NVDA", "GOOG", "AMZN", "META", "BRK-B", "LLY", "AVGO", "TSM", "NVO", "JPM"],
 }
 
 

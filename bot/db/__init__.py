@@ -14,3 +14,15 @@ async def init_db():
     except DBConnectionError as e:
         print(f"Error al conectar con la base de datos: {e}")
         raise
+
+async def close_db():
+    await Tortoise.close_connections()
+
+async def test_db_connection():
+    try:
+        print("Probar conexión...")
+        await Tortoise.init(TORTOISE_ORM)
+        print("Conexión exitosa.")
+        await Tortoise.close_connections()
+    except Exception as e:
+        print(f"Error al conectar: {e}")
