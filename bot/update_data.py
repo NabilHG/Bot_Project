@@ -4,10 +4,10 @@ import yfinance as yf
 import asyncio
 from ta.momentum import RSIIndicator
 from datetime import datetime
-from bot.config import MATRIX
+from bot.config import MATRIX, FIRST_ADMIN
 
 
-async def update_data(updated_data, is_ticker_updated):
+async def update_data(updated_data, is_ticker_updated, bot):
     print("Here we're going to update data every day")
     year = list(MATRIX.keys())[-1]
     folder_path = "data"
@@ -78,6 +78,7 @@ async def update_data(updated_data, is_ticker_updated):
 
     if all(is_ticker_updated.values()):
         updated_data[0] = True
+        await bot.send_message(FIRST_ADMIN, "Datos actualizados ✅")
     else:
         print(f'Not all data updated: {is_ticker_updated}')
 

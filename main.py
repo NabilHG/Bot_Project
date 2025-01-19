@@ -20,11 +20,11 @@ async def wait_until(target_time: time):
     print(f'We are going to wait: {wait_seconds} seconds')
     await asyncio.sleep(wait_seconds)
 
-async def update_data_task(updated_data, is_ticker_updated):
+async def update_data_task(updated_data, is_ticker_updated, bot):
     print(f'Updated data: {updated_data[0]}')
     while not updated_data[0]:
         print(f'While loop updated_data: {updated_data[0]}')
-        await update_data.update_data(updated_data, is_ticker_updated)
+        await update_data.update_data(updated_data, is_ticker_updated, bot)
         await asyncio.sleep(5)
     print("exit")
     
@@ -43,7 +43,7 @@ async def schedule_daily_task(updated_data, is_ticker_updated, bot):
         print("Starting data update...")
 
         # Ejecuta la actualización sin bloquear otras tareas
-        update_data = await update_data_task(updated_data, is_ticker_updated)
+        update_data = await update_data_task(updated_data, is_ticker_updated, bot)
         print(f'Updated all data: {update_data}')
         if update_data:
             await analysis_task(bot)

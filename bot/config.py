@@ -5,6 +5,8 @@ load_dotenv(override=True)
 # Token Telgram bot
 BOT_TOKEN = getenv("BOT_TOKEN")
 
+FIRST_ADMIN = getenv("FIRST_ADMIN")
+
 #db url
 MYSQL_ROOT_PASSWORD= getenv("MYSQL_ROOT_PASSWORD")
 MYSQL_DATABASE= getenv("MYSQL_DATABASE")
@@ -14,11 +16,11 @@ TORTOISE_ORM = {
         "default": {
             "engine": "tortoise.backends.mysql",
             "credentials": {
-                "host": "localhost",
+                "host": "db", 
                 "port": 3306,
                 "user": "root",
                 "password": MYSQL_ROOT_PASSWORD,
-                "database": MYSQL_DATABASE,
+                "database": MYSQL_DATABASE, 
                 "minsize": 1,  
                 "maxsize": 1,  
             },
