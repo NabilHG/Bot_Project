@@ -16,7 +16,10 @@ async def update_data(updated_data, is_ticker_updated, bot):
     for ticker in MATRIX[year]:
         if not is_ticker_updated[ticker]:
             print(ticker)
-            data = yf.download(ticker, period="6mo")
+            data = yf.Ticker(ticker)
+            # print(data.history(period='6mo'))
+            data = data.history(period='6mo')
+            data.index = data.index.tz_localize(None)
             rsi = RSIIndicator(close=data['Close'], window=14)
             data['RSI'] = rsi.rsi()
             
@@ -48,7 +51,7 @@ async def update_data(updated_data, is_ticker_updated, bot):
 
             # Usar la fecha más reciente de las dos como referencia
             file_last_date = max(file_last_date_close, file_last_date_rsi)
-
+            
             # Encontrar todas las fechas nuevas después de la última fecha registrada
             new_data_dates = [date for date in data.index if date > file_last_date]
 
